@@ -1,0 +1,4 @@
+FROM ghcr.io/multica-ai/multica-web:v0.4.44
+COPY --chown=1001:1001 standalone/ /app/
+COPY --chown=1001:1001 static/ /app/apps/web/.next/static/
+COPY --chown=1001:1001 public/ /app/apps/web/public/

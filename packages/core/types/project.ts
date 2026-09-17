@@ -3,6 +3,11 @@ export type ProjectStatus = "planned" | "in_progress" | "paused" | "completed" |
 export type ProjectPriority = "urgent" | "high" | "medium" | "low" | "none";
 
 export interface Project {
+  created_by?: string | null;
+  access_restricted?: boolean;
+  access_allowed?: boolean;
+  can_manage_access?: boolean;
+  allowed_user_ids?: string[];
   id: string;
   workspace_id: string;
   title: string;

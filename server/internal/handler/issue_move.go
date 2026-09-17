@@ -67,6 +67,9 @@ func (h *Handler) MoveIssue(w http.ResponseWriter, r *http.Request) {
 		if !valid {
 			return
 		}
+		if !h.requireProjectAccess(w, r, *projectID) {
+			return
+		}
 		var exists bool
 		err := h.DB.QueryRow(r.Context(), `
 			SELECT EXISTS (

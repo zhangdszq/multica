@@ -80,3 +80,15 @@ export function useDeleteProject() {
     },
   });
 }
+
+export function useUpdateProjectAccess() {
+  const qc = useQueryClient();
+  const wsId = useWorkspaceId();
+  return useMutation({
+    mutationFn: ({ id, ...data }: { id: string; access_restricted: boolean; allowed_user_ids: string[] }) => api.updateProjectAccess(id, data),
+    onSuccess: async (project) => {
+      qc.setQueryData(projectKeys.detail(wsId, project.id), project);
+      await qc.invalidateQueries({ queryKey: projectKeys.all(wsId) });
+    },
+  });
+}

@@ -4,7 +4,10 @@ SELECT i.*,
        iss.priority AS issue_priority
 FROM inbox_item i
 LEFT JOIN issue iss ON iss.id = i.issue_id
-WHERE i.workspace_id = $1 AND i.recipient_type = $2 AND i.recipient_id = $3 AND i.archived = false
+WHERE i.workspace_id = $1
+  AND NOT EXISTS (SELECT 1 FROM issue protected_issue JOIN project pa ON pa.id = protected_issue.project_id
+    WHERE protected_issue.id = i.issue_id AND pa.workspace_id = i.workspace_id AND pa.access_restricted
+    AND pa.created_by IS DISTINCT FROM i.recipient_id AND NOT (i.recipient_id = ANY(pa.allowed_user_ids))) AND i.recipient_type = $2 AND i.recipient_id = $3 AND i.archived = false
 ORDER BY i.created_at DESC;
 
 -- name: ListArchivedInboxItems :many
@@ -36,6 +39,9 @@ WITH eligible_archived AS MATERIALIZED (
            i.details
     FROM inbox_item i
     WHERE i.workspace_id = $1
+  AND NOT EXISTS (SELECT 1 FROM issue protected_issue JOIN project pa ON pa.id = protected_issue.project_id
+    WHERE protected_issue.id = i.issue_id AND pa.workspace_id = i.workspace_id AND pa.access_restricted
+    AND pa.created_by IS DISTINCT FROM i.recipient_id AND NOT (i.recipient_id = ANY(pa.allowed_user_ids)))
       AND i.recipient_type = $2
       AND i.recipient_id = $3
       AND i.archived = true
@@ -191,6 +197,9 @@ WITH newest_groups AS (
            i.read
     FROM inbox_item i
     WHERE i.workspace_id = $1
+  AND NOT EXISTS (SELECT 1 FROM issue protected_issue JOIN project pa ON pa.id = protected_issue.project_id
+    WHERE protected_issue.id = i.issue_id AND pa.workspace_id = i.workspace_id AND pa.access_restricted
+    AND pa.created_by IS DISTINCT FROM i.recipient_id AND NOT (i.recipient_id = ANY(pa.allowed_user_ids)))
       AND i.recipient_type = 'member'
       AND i.recipient_id = $2
       AND i.archived = false
@@ -203,6 +212,9 @@ WITH newest_groups AS (
 UPDATE inbox_item i SET archived = true
 FROM read_groups selected
 WHERE i.workspace_id = $1
+  AND NOT EXISTS (SELECT 1 FROM issue protected_issue JOIN project pa ON pa.id = protected_issue.project_id
+    WHERE protected_issue.id = i.issue_id AND pa.workspace_id = i.workspace_id AND pa.access_restricted
+    AND pa.created_by IS DISTINCT FROM i.recipient_id AND NOT (i.recipient_id = ANY(pa.allowed_user_ids)))
   AND i.recipient_type = 'member'
   AND i.recipient_id = $2
   AND i.archived = false
@@ -210,7 +222,10 @@ WHERE i.workspace_id = $1
 
 -- name: ArchiveCompletedInbox :execrows
 UPDATE inbox_item i SET archived = true
-WHERE i.workspace_id = $1 AND i.recipient_type = 'member' AND i.recipient_id = $2 AND i.archived = false
+WHERE i.workspace_id = $1
+  AND NOT EXISTS (SELECT 1 FROM issue protected_issue JOIN project pa ON pa.id = protected_issue.project_id
+    WHERE protected_issue.id = i.issue_id AND pa.workspace_id = i.workspace_id AND pa.access_restricted
+    AND pa.created_by IS DISTINCT FROM i.recipient_id AND NOT (i.recipient_id = ANY(pa.allowed_user_ids))) AND i.recipient_type = 'member' AND i.recipient_id = $2 AND i.archived = false
   AND i.issue_id IN (
     SELECT id FROM issue
     WHERE workspace_id = $1

@@ -113,6 +113,9 @@ func (h *Handler) CreateChatSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if projectID.Valid {
+		if !h.requireProjectAccess(w, r, projectID) {
+			return
+		}
 		if _, err := qtx.LockProjectForChatSessionCreate(r.Context(), db.LockProjectForChatSessionCreateParams{
 			ID:          projectID,
 			WorkspaceID: workspaceUUID,
@@ -424,6 +427,9 @@ func (h *Handler) UpdateChatSession(w http.ResponseWriter, r *http.Request) {
 		qtx := h.Queries.WithTx(tx)
 
 		if projectID.Valid {
+			if !h.requireProjectAccess(w, r, projectID) {
+				return
+			}
 			if _, lockErr := qtx.LockProjectForChatSessionCreate(r.Context(), db.LockProjectForChatSessionCreateParams{
 				ID:          projectID,
 				WorkspaceID: session.WorkspaceID,

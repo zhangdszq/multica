@@ -397,6 +397,10 @@ SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
        i.revision
 FROM issue i
 WHERE i.workspace_id = $1
+  AND NOT EXISTS (SELECT 1 FROM project pa WHERE pa.id = i.project_id
+    AND pa.workspace_id = i.workspace_id AND pa.access_restricted
+    AND pa.created_by IS DISTINCT FROM sqlc.arg('access_user_id')::uuid
+    AND NOT (sqlc.arg('access_user_id')::uuid = ANY(pa.allowed_user_ids)))
   -- Negate only known terminal keys so an unknown legacy key remains visible.
   AND NOT (i.status = ANY(sqlc.arg('terminal_status_keys')::text[]))
   AND (sqlc.narg('priority')::text IS NULL OR i.priority = sqlc.narg('priority'))
@@ -560,9 +564,13 @@ ORDER BY number ASC;
 -- enumerate children of parents in workspaces they don't belong to.
 -- Within each parent, order by number ASC for the same sibling-stable
 -- creation order as ListChildIssues.
-SELECT * FROM issue
-WHERE workspace_id = sqlc.arg('workspace_id')
+SELECT issue.* FROM issue
+WHERE issue.workspace_id = sqlc.arg('workspace_id')
   AND parent_issue_id = ANY(sqlc.arg('parent_ids')::uuid[])
+  AND NOT EXISTS (SELECT 1 FROM project pa WHERE pa.id = issue.project_id
+    AND pa.workspace_id = issue.workspace_id AND pa.access_restricted
+    AND pa.created_by IS DISTINCT FROM sqlc.arg('access_user_id')::uuid
+    AND NOT (sqlc.arg('access_user_id')::uuid = ANY(pa.allowed_user_ids)))
 ORDER BY parent_issue_id, number ASC;
 
 -- name: GetIssueByOrigin :one
@@ -596,8 +604,12 @@ SELECT parent_issue_id,
        COUNT(*)::bigint AS total,
        COUNT(*) FILTER (WHERE status = ANY(sqlc.arg('terminal_status_keys')::text[]))::bigint AS done
 FROM issue
-WHERE workspace_id = $1
+WHERE issue.workspace_id = $1
   AND parent_issue_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM project pa WHERE pa.id = issue.project_id
+    AND pa.workspace_id = issue.workspace_id AND pa.access_restricted
+    AND pa.created_by IS DISTINCT FROM sqlc.arg('access_user_id')::uuid
+    AND NOT (sqlc.arg('access_user_id')::uuid = ANY(pa.allowed_user_ids)))
 GROUP BY parent_issue_id;
 
 -- SearchIssues: moved to handler (dynamic SQL for multi-word search support).

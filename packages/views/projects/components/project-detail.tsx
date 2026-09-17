@@ -1,5 +1,7 @@
 "use client";
 
+import { ProjectAccessSettings } from "./project-access-settings";
+
 import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { useDefaultLayout, usePanelRef } from "react-resizable-panels";
 import { Check, ChevronRight, Link2, MoreHorizontal, PanelRight, Pin, PinOff, Trash2, UserMinus } from "lucide-react";
@@ -107,10 +109,10 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
   const wsPaths = useWorkspacePaths();
   const router = useNavigation();
   const userId = useAuthStore((s) => s.user?.id);
-  const { data: project, isLoading } = useQuery(projectDetailOptions(wsId, projectId));
+  const { data: project, isLoading } = useQuery({ ...projectDetailOptions(wsId, projectId), refetchInterval: 10000 });
   const recordRecentContext = useRecentContextStore((s) => s.recordVisit);
   useEffect(() => {
-    if (project) {
+    if (project && project.access_allowed !== false) {
       recordRecentContext(wsId, {
         type: "project",
         id: project.id,
@@ -120,7 +122,7 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
         projectStatus: project.status,
       });
     }
-  }, [project?.id, project?.title, project?.description, project?.icon, project?.status, recordRecentContext, wsId]);
+  }, [project, recordRecentContext, wsId]);
   const issueTab = useIssuesScope(`project:${projectId}`);
   const issueScope = useMemo(
     () => ({ type: "project" as const, projectId, actorKind: issueTab }),
@@ -241,6 +243,15 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
 
   const issueMetrics = getProjectIssueMetrics(project);
   const statusCfg = PROJECT_STATUS_CONFIG[project.status];
+
+  if (project.access_allowed === false) {
+    const creator = members.find((member) => member.user_id === project.created_by);
+    return <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+      <h1 className="text-title font-semibold">{t(($) => $.access.denied_title)}</h1>
+      <p className="text-muted-foreground">{t(($) => $.access.denied_message, { name: creator?.name || t(($) => $.access.creator) })}</p>
+      <Button variant="outline" onClick={() => router.push(wsPaths.projects())}>{t(($) => $.access.back)}</Button>
+    </div>;
+  }
 
   const sidebarContent = (
     <div className="space-y-5">
@@ -467,6 +478,8 @@ export function ProjectDetail({ projectId }: { projectId: string }) {
           </p>
         </div>}
       </div>
+
+      {project.can_manage_access === true && <ProjectAccessSettings key={`${project.id}:${project.updated_at}`} project={project} />}
 
       {/* Resources */}
       <ProjectResourcesSection projectId={projectId} />

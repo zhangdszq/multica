@@ -442,6 +442,7 @@ func (h *Handler) compileIssueTableQuery(w http.ResponseWriter, r *http.Request,
 		args = append(args, value)
 		return "$" + strconv.Itoa(len(args))
 	}
+	where = append(where, projectVisibilitySQL("i.project_id", "i.workspace_id", addArg(projectPrincipal(r))))
 
 	// Any non-empty status KEY, not just the 7 built-ins. A status filter names
 	// the exact statuses the user picked, and since MUL-6243 those can be custom

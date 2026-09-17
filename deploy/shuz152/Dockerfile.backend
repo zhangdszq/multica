@@ -1,0 +1,4 @@
+FROM ghcr.io/multica-ai/multica-backend:v0.4.44
+COPY server /app/server
+COPY migrate /app/migrate
+COPY migrations/ /app/migrations/

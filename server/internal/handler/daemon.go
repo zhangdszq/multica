@@ -161,6 +161,10 @@ func (h *Handler) requireDaemonTaskAccessWithWorkspace(w http.ResponseWriter, r 
 	if !h.requireDaemonWorkspaceAccess(w, r, wsID) {
 		return db.AgentTaskQueue{}, "", false
 	}
+	if requestUserID(r) != "" && !h.canReadProjectIssue(r, task.IssueID, parseUUID(wsID)) {
+		writeError(w, http.StatusForbidden, "project access required")
+		return db.AgentTaskQueue{}, "", false
+	}
 	return task, wsID, true
 }
 

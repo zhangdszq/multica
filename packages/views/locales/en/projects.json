@@ -168,5 +168,18 @@
     "direction_desc": "Descending",
     "section_columns": "Columns",
     "view": "View"
+  },
+  "access": {
+    "title": "Project access",
+    "restricted": "Only selected members",
+    "creator_hint": "The creator always has access. Changes take effect after saving.",
+    "search": "Search members",
+    "creator": "Creator",
+    "save": "Save access",
+    "saved": "Access updated",
+    "failed": "Could not save access. Try again.",
+    "denied_title": "Access required",
+    "denied_message": "Ask {{name}} to authorize access to this project.",
+    "back": "Back to projects"
   }
 }
