@@ -23,9 +23,9 @@ projects so their creator can be verified before removing access management.
 
 Project creators can select members in the project sidebar's Access section.
 Enable “Only selected members”, select members, and save. The creator cannot lock
-themselves out. Unselected members, including workspace administrators, see a
-page directing them to the creator. Project titles remain discoverable in the
-project list; descriptions, resources, issue counts, and member lists do not.
+themselves out. Unselected members, including workspace administrators, do not
+receive the project in lists or search; direct project, issue, resource and pin
+lookups return 404 so the project cannot be discovered by title or known ID.
 Access is checked in project writes, resources, issue reads/writes and query
 surfaces, attachment download authorization, and websocket delivery. Existing
 signed download capabilities retain their original expiration semantics.
