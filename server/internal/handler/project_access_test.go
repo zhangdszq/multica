@@ -62,7 +62,7 @@ func TestProjectAccessLifecycle(t *testing.T) {
 			t.Fatalf("restricted issue leaked at %s: %s", path, result.Body.String())
 		}
 	}
-	table := issueTableRowsRequest{Query: issueTableQuerySpec{Scope: issueTableScope{Kind: "workspace"}}, Page: issueTablePageRequest{Limit: 100}}
+	table := issueTableRowsRequest{Query: issueTableQuerySpec{Scope: issueTableScope{Kind: "workspace"}}, Group: issueTableGroupSpec{Kind: "none"}, Page: issueTablePageRequest{Limit: 100}}
 	tableResult := testutil.Call(t, testHandler.ListIssueTableRows, newRequestAs(member, "POST", "/api/issues/table/rows", table)).Want(200)
 	if strings.Contains(tableResult.Body.String(), issueID) {
 		t.Fatal("restricted issue leaked through table rows")
@@ -91,5 +91,9 @@ func TestProjectAccessLifecycle(t *testing.T) {
 	setAccess(testUserID, false, nil, 200)
 	if !get(member).AccessAllowed {
 		t.Fatal("unrestricted access not restored")
+	}
+	deleted, _ := json.Marshal(map[string]any{"type": "issue:deleted", "payload": map[string]any{"issue_id": "00000000-0000-0000-0000-000000000001"}})
+	if !testHandler.AuthorizeProjectMessage(member, testWorkspaceID, "workspace", testWorkspaceID, deleted) {
+		t.Fatal("opaque deletion invalidation must survive removal of its row")
 	}
 }

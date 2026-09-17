@@ -5,6 +5,7 @@ Requires=docker.service
 
 [Service]
 Type=simple
+ExecStartPre=/bin/sh /opt/multica-shuz152/render-gateway.sh
 ExecStart=/usr/sbin/nginx -p /opt/multica-shuz152/ -c /opt/multica-shuz152/nginx.conf -g "daemon off;"
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure

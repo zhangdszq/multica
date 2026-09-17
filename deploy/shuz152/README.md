@@ -23,7 +23,8 @@ The isolated server copy uses:
 - Backend: `multica-shuz152-backend`
 - Frontend: `multica-shuz152-frontend`
 - Gateway: independent systemd service `multica-shuz152-gateway`, host port 3100
-- Internal host listeners: backend 127.0.0.1:18180, frontend 127.0.0.1:13100
+- Backend/frontend stay on the internal Docker network, with no published ports.
+  The gateway resolves their private IPs at startup using `render-gateway.sh`.
 
 Before starting the backend, pause copied autopilots and their triggers, revoke
 channel installations, remove copied access/daemon/task tokens, cancel unfinished
@@ -44,7 +45,9 @@ systemctl stop multica-shuz152-gateway
 docker stop multica-shuz152-frontend multica-shuz152-backend multica-shuz152-postgres
 ```
 
-Start the containers again, then start the gateway service. The gateway uses its own config and PID file; never reload or restart the production nginx service. Do not use the production compose project name
+Install `nginx.conf` as `nginx.conf.template` alongside `render-gateway.sh`.
+Start the containers again, then start or restart the gateway service to resolve
+their current private IPs. The gateway uses its own config and PID file; never reload or restart the production nginx service. Do not use the production compose project name
 `multica`. Removing test containers does not remove the test database volume.
 After testing, remove the dedicated security-group rule for port 3100 and the
 test deployment only. Preserve the source patch and any test data still needed.
