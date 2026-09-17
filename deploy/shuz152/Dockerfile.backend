@@ -1,6 +1,8 @@
 # Build from the repository root: binaries and SQL must share one revision.
 FROM golang:1.26-alpine AS builder
 WORKDIR /src/server
+ARG GOPROXY=https://proxy.golang.org,direct
+ENV GOMAXPROCS=2 GOMEMLIMIT=1GiB
 COPY server/go.mod server/go.sum ./
 RUN go mod download
 COPY server/ ./
