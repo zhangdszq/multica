@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
+	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
 // projectVisibilitySQL is composed only from constant column names and SQL
@@ -68,8 +69,9 @@ func projectAllowsUser(p db.Project, userID string) bool {
 	return false
 }
 
-// A denied project remains discoverable by title, but carries no description,
-// resource references, issue counts, or membership list.
+// Project responses are only emitted after the caller's access has been
+// checked. AccessAllowed remains part of the response contract for compatible
+// clients, but a false response must never cross the HTTP boundary.
 func (h *Handler) projectForRequest(r *http.Request, p db.Project) ProjectResponse {
 	resp := projectToResponse(p)
 	resp.AccessAllowed = projectAllowsUser(p, requestUserID(r))
@@ -103,7 +105,7 @@ func (h *Handler) requireProjectAccess(w http.ResponseWriter, r *http.Request, p
 		return false
 	}
 	if !projectAllowsUser(p, requestUserID(r)) {
-		writeError(w, http.StatusForbidden, "project access requires authorization from its creator")
+		writeError(w, http.StatusNotFound, "resource not found")
 		return false
 	}
 	return true
@@ -128,6 +130,10 @@ func (h *Handler) UpdateProjectAccess(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := h.Queries.GetProjectInWorkspace(r.Context(), db.GetProjectInWorkspaceParams{ID: id, WorkspaceID: wsID})
 	if err != nil {
+		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	if !projectAllowsUser(p, userID) {
 		writeError(w, http.StatusNotFound, "project not found")
 		return
 	}
@@ -171,7 +177,14 @@ func (h *Handler) UpdateProjectAccess(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to update project access")
 		return
 	}
-	writeJSON(w, http.StatusOK, h.projectForRequest(r, p))
+	resp := h.projectForRequest(r, p)
+	workspaceID := uuidToString(wsID)
+	// Recipients that retain access receive the normal full update. Recipients
+	// that lost access receive only the opaque access_changed invalidation; the
+	// realtime authorizer routes the two events to mutually exclusive audiences.
+	h.publish(protocol.EventProjectUpdated, workspaceID, "member", userID, map[string]any{"project": projectEventResponse(resp)})
+	h.publish(protocol.EventProjectAccessChanged, workspaceID, "member", userID, map[string]any{"project_id": resp.ID})
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // Per-request permissions cannot be broadcast as if every recipient were the

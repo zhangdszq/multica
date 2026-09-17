@@ -193,17 +193,18 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	resp := make([]ProjectResponse, len(projects))
-	for i, p := range projects {
-		resp[i] = h.projectForRequest(r, p)
-		if !resp[i].AccessAllowed {
+	resp := make([]ProjectResponse, 0, len(projects))
+	for _, p := range projects {
+		projectResp := h.projectForRequest(r, p)
+		if !projectResp.AccessAllowed {
 			continue
 		}
-		if s, ok := statsMap[resp[i].ID]; ok {
-			resp[i].IssueCount = s.TotalCount
-			resp[i].DoneCount = s.DoneCount
+		if s, ok := statsMap[projectResp.ID]; ok {
+			projectResp.IssueCount = s.TotalCount
+			projectResp.DoneCount = s.DoneCount
 		}
-		resp[i].ResourceCount = resourceCountMap[resp[i].ID]
+		projectResp.ResourceCount = resourceCountMap[projectResp.ID]
+		resp = append(resp, projectResp)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"projects": resp, "total": len(resp)})
 }
@@ -228,7 +229,7 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := h.projectForRequest(r, project)
 	if !resp.AccessAllowed {
-		writeJSON(w, http.StatusOK, resp)
+		writeError(w, http.StatusNotFound, "project not found")
 		return
 	}
 	resp.IssueCount, resp.DoneCount = h.loadProjectIssueStats(r.Context(), wsUUID, project.ID)

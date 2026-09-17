@@ -6,7 +6,7 @@
 
 - 项目创建人可在项目侧栏的“访问授权”中启用“仅限选中成员”，并维护可访问成员。
 - 项目创建人始终保留访问权，不会被自己的授权名单锁在项目之外。
-- 未授权成员只能看到项目标题和联系创建人申请授权的提示；描述、负责人、日期、任务统计、资源和授权名单不会返回。
+- 未授权成员看不到项目条目、标题或任何项目内容；直链及关联接口统一按资源不存在返回 `404`。
 - `owner`、`admin` 不自动绕过项目权限，也不能代替创建人修改授权。
 - 历史项目不再根据工作区角色、负责人或资源上传人推断创建人；创建人只采用新建时记录或工作区 owner 明确确认的数据。
 - 功能已部署到正式入口 `https://team.shuzhixinghua.com`。原正式应用容器、切换前数据库备份和上传文件备份仍保留，可回退。
@@ -46,16 +46,16 @@
 - 校验选中用户必须属于当前工作区；重复成员自动去重；单次最多 1000 人。
 - task token 不能管理项目授权。
 - 项目查询响应新增 `created_by`、`access_restricted`、`access_allowed`、`can_manage_access` 和 `allowed_user_ids`。
-- 非创建人不会收到授权名单；未授权成员收到经过裁剪的项目响应。
+- 非创建人不会收到授权名单；未授权成员不会收到任何项目响应。
 - 项目访问规则覆盖项目详情与修改、项目资源、任务详情与修改、列表、搜索、表格查询、附件下载、自动化与聊天项目上下文等路径。
-- WebSocket 按每个接收者重新判断权限；授权变更发送无用户私有字段的失效事件，客户端随后按自身身份重新拉取。
+- WebSocket 按每个接收者重新判断权限；保留权限者收到正常项目更新，失去权限者只收到不含项目内容的 `project:access_changed` 失效事件并清除缓存。
 - 删除事件保持可达，避免被删除记录无法再用于权限判断时客户端留下陈旧数据。
 
 ## 前端与 API 客户端改动
 
 - 项目详情侧栏新增“访问授权”设置，仅在 `can_manage_access=true` 时展示。
 - 创建人可切换限制访问、勾选工作区成员并保存；创建人本人固定保留。
-- 未授权页面显示创建人联系方式；旧服务端缺少新字段时，Zod schema 使用兼容默认值，保证已安装客户端仍可工作。
+- 未授权项目不再进入客户端数据集；旧服务端缺少新字段时，Zod schema 使用兼容默认值，保证已安装客户端仍可工作。
 - 更新英文、简体中文、日文和韩文文案。
 - TanStack Query mutation 保存后刷新项目详情与相关列表缓存。
 
@@ -111,6 +111,7 @@
 - `server/internal/handler/project_access.go`：授权规则和更新接口。
 - `server/internal/handler/project_access_realtime.go`：实时消息过滤。
 - `server/internal/handler/project_access_test.go`：后端授权回归。
+- `deploy/shuz152/PROJECT_ACCESS_INVISIBILITY_DESIGN.zh.md`：未授权项目完全隐藏的后端技术设计。
 - `packages/views/projects/components/project-access-settings.tsx`：授权设置 UI。
 - `deploy/shuz152/README.md`：测试环境隔离与操作说明。
 - `deploy/shuz152/PRODUCTION.md`：正式环境切换与回退说明。

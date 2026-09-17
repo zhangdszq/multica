@@ -31,6 +31,21 @@ func (h *Handler) AuthorizeProjectMessage(userID, workspaceID, scopeType, scopeI
 	if event, ok := body.(map[string]any); ok {
 		kind, _ := event["type"].(string)
 		payload, _ := event["payload"].(map[string]any)
+		if kind == "project:access_changed" && len(payload) == 1 && scopeType == "workspace" {
+			projectID, idOK := payload["project_id"].(string)
+			id, idErr := util.ParseUUID(projectID)
+			uid, userErr := util.ParseUUID(userID)
+			wsID, wsErr := util.ParseUUID(workspaceID)
+			if !idOK || idErr != nil || userErr != nil || wsErr != nil {
+				return false
+			}
+			project, err := h.Queries.GetProjectInWorkspace(ctx, db.GetProjectInWorkspaceParams{ID: id, WorkspaceID: wsID})
+			if err != nil || projectAllowsUser(project, userID) {
+				return false
+			}
+			_, err = h.Queries.GetMemberByUserAndWorkspace(ctx, db.GetMemberByUserAndWorkspaceParams{UserID: uid, WorkspaceID: wsID})
+			return err == nil
+		}
 		key := ""
 		if kind == "project:deleted" {
 			key = "project_id"

@@ -8,6 +8,8 @@
  *                       the full Project; no refetch.
  *   - project:updated → patch list + detail (full replace on detail).
  *   - project:deleted → strip from list and drop detail + resources caches.
+ *   - project:access_changed → same local purge for a recipient whose access
+ *                              was revoked; server sends no project content.
  *   - reconnect       → invalidate project list (we may have missed
  *                       create/delete events while disconnected).
  *
@@ -43,6 +45,10 @@ export function useProjectsRealtime() {
           patchProjectDetail(qc, wsId, payload.project);
         }),
         ws.on("project:deleted", (payload) => {
+          removeFromProjectsList(qc, wsId, payload.project_id);
+          clearProjectDetail(qc, wsId, payload.project_id);
+        }),
+        ws.on("project:access_changed", (payload) => {
           removeFromProjectsList(qc, wsId, payload.project_id);
           clearProjectDetail(qc, wsId, payload.project_id);
         }),
