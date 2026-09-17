@@ -770,6 +770,10 @@ func (h *Handler) loadAttachmentForRequest(w http.ResponseWriter, r *http.Reques
 		return db.Attachment{}, false
 	}
 
+	if !h.canReadProjectIssue(r, att.IssueID, att.WorkspaceID) {
+		writeError(w, http.StatusForbidden, "project access required")
+		return db.Attachment{}, false
+	}
 	return att, true
 }
 
@@ -817,6 +821,10 @@ func (h *Handler) loadAttachmentForDownload(w http.ResponseWriter, r *http.Reque
 		return db.Attachment{}, false
 	}
 	if h.MembershipCache.Get(r.Context(), userID, workspaceID) {
+		if !h.canReadProjectIssue(r, att.IssueID, att.WorkspaceID) {
+			writeError(w, http.StatusForbidden, "project access required")
+			return db.Attachment{}, false
+		}
 		return att, true
 	}
 	if _, err := h.getWorkspaceMember(r.Context(), userID, workspaceID); err != nil {
@@ -824,6 +832,10 @@ func (h *Handler) loadAttachmentForDownload(w http.ResponseWriter, r *http.Reque
 		return db.Attachment{}, false
 	}
 	h.MembershipCache.Set(r.Context(), userID, workspaceID)
+	if !h.canReadProjectIssue(r, att.IssueID, att.WorkspaceID) {
+		writeError(w, http.StatusForbidden, "project access required")
+		return db.Attachment{}, false
+	}
 	return att, true
 }
 

@@ -22,15 +22,20 @@ import (
 )
 
 type ProjectResponse struct {
-	ID          string  `json:"id"`
-	WorkspaceID string  `json:"workspace_id"`
-	Title       string  `json:"title"`
-	Description *string `json:"description"`
-	Icon        *string `json:"icon"`
-	Status      string  `json:"status"`
-	Priority    string  `json:"priority"`
-	LeadType    *string `json:"lead_type"`
-	LeadID      *string `json:"lead_id"`
+	CreatedBy        *string  `json:"created_by"`
+	AccessRestricted bool     `json:"access_restricted"`
+	AccessAllowed    bool     `json:"access_allowed"`
+	CanManageAccess  bool     `json:"can_manage_access"`
+	AllowedUserIDs   []string `json:"allowed_user_ids"`
+	ID               string   `json:"id"`
+	WorkspaceID      string   `json:"workspace_id"`
+	Title            string   `json:"title"`
+	Description      *string  `json:"description"`
+	Icon             *string  `json:"icon"`
+	Status           string   `json:"status"`
+	Priority         string   `json:"priority"`
+	LeadType         *string  `json:"lead_type"`
+	LeadID           *string  `json:"lead_id"`
 	// StartDate / DueDate are calendar days ("YYYY-MM-DD"), no time-of-day or
 	// timezone — same contract as issue.start_date / issue.due_date.
 	StartDate  *string `json:"start_date"`
@@ -48,19 +53,23 @@ type ProjectResponse struct {
 
 func projectToResponse(p db.Project) ProjectResponse {
 	return ProjectResponse{
-		ID:          uuidToString(p.ID),
-		WorkspaceID: uuidToString(p.WorkspaceID),
-		Title:       p.Title,
-		Description: textToPtr(p.Description),
-		Icon:        textToPtr(p.Icon),
-		Status:      p.Status,
-		Priority:    p.Priority,
-		LeadType:    textToPtr(p.LeadType),
-		LeadID:      uuidToPtr(p.LeadID),
-		StartDate:   dateToPtr(p.StartDate),
-		DueDate:     dateToPtr(p.DueDate),
-		CreatedAt:   timestampToString(p.CreatedAt),
-		UpdatedAt:   timestampToString(p.UpdatedAt),
+		CreatedBy:        uuidToPtr(p.CreatedBy),
+		AccessRestricted: p.AccessRestricted,
+		AccessAllowed:    true,
+		AllowedUserIDs:   []string{},
+		ID:               uuidToString(p.ID),
+		WorkspaceID:      uuidToString(p.WorkspaceID),
+		Title:            p.Title,
+		Description:      textToPtr(p.Description),
+		Icon:             textToPtr(p.Icon),
+		Status:           p.Status,
+		Priority:         p.Priority,
+		LeadType:         textToPtr(p.LeadType),
+		LeadID:           uuidToPtr(p.LeadID),
+		StartDate:        dateToPtr(p.StartDate),
+		DueDate:          dateToPtr(p.DueDate),
+		CreatedAt:        timestampToString(p.CreatedAt),
+		UpdatedAt:        timestampToString(p.UpdatedAt),
 	}
 }
 
@@ -186,7 +195,10 @@ func (h *Handler) ListProjects(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]ProjectResponse, len(projects))
 	for i, p := range projects {
-		resp[i] = projectToResponse(p)
+		resp[i] = h.projectForRequest(r, p)
+		if !resp[i].AccessAllowed {
+			continue
+		}
 		if s, ok := statsMap[resp[i].ID]; ok {
 			resp[i].IssueCount = s.TotalCount
 			resp[i].DoneCount = s.DoneCount
@@ -214,7 +226,11 @@ func (h *Handler) GetProject(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "project not found")
 		return
 	}
-	resp := projectToResponse(project)
+	resp := h.projectForRequest(r, project)
+	if !resp.AccessAllowed {
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
 	resp.IssueCount, resp.DoneCount = h.loadProjectIssueStats(r.Context(), wsUUID, project.ID)
 	resp.ResourceCount = h.loadProjectResourceCount(r.Context(), project.ID)
 	writeJSON(w, http.StatusOK, resp)
@@ -368,6 +384,7 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	createParams := db.CreateProjectParams{
+		CreatedBy:   parseUUID(userID),
 		WorkspaceID: wsUUID,
 		Title:       req.Title,
 		Description: ptrToText(req.Description),
@@ -387,8 +404,8 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 			h.writeProjectWriteError(w, r, err, "create")
 			return
 		}
-		resp := projectToResponse(project)
-		h.publish(protocol.EventProjectCreated, workspaceID, "member", userID, map[string]any{"project": resp})
+		resp := h.projectForRequest(r, project)
+		h.publish(protocol.EventProjectCreated, workspaceID, "member", userID, map[string]any{"project": projectEventResponse(resp)})
 		writeJSON(w, http.StatusCreated, resp)
 		return
 	}
@@ -447,9 +464,9 @@ func (h *Handler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	for i, row := range resourceRows {
 		resourceResp[i] = projectResourceToResponse(row)
 	}
-	resp := projectToResponse(project)
+	resp := h.projectForRequest(r, project)
 	resp.ResourceCount = int64(len(resourceResp))
-	h.publish(protocol.EventProjectCreated, workspaceID, "member", userID, map[string]any{"project": resp})
+	h.publish(protocol.EventProjectCreated, workspaceID, "member", userID, map[string]any{"project": projectEventResponse(resp)})
 	for _, rr := range resourceResp {
 		h.publish(protocol.EventProjectResourceCreated, workspaceID, "member", userID, map[string]any{
 			"resource":   rr,
@@ -484,6 +501,9 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	if !h.requireProjectAccess(w, r, prevProject.ID) {
 		return
 	}
 	userID, ok := requireUserID(w, r)
@@ -590,10 +610,14 @@ func (h *Handler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 		h.writeProjectWriteError(w, r, err, "update")
 		return
 	}
-	resp := projectToResponse(project)
+	resp := h.projectForRequest(r, project)
+	if !resp.AccessAllowed {
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
 	resp.IssueCount, resp.DoneCount = h.loadProjectIssueStats(r.Context(), wsUUID, project.ID)
 	resp.ResourceCount = h.loadProjectResourceCount(r.Context(), project.ID)
-	h.publish(protocol.EventProjectUpdated, workspaceID, "member", userID, map[string]any{"project": resp})
+	h.publish(protocol.EventProjectUpdated, workspaceID, "member", userID, map[string]any{"project": projectEventResponse(resp)})
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -613,6 +637,9 @@ func (h *Handler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		writeError(w, http.StatusNotFound, "project not found")
+		return
+	}
+	if !h.requireProjectAccess(w, r, project.ID) {
 		return
 	}
 	requester, ok := h.requireWorkspaceRole(w, r, uuidToString(project.WorkspaceID), "project not found", "owner", "admin")
@@ -800,7 +827,7 @@ func buildProjectSearchQuery(phrase string, terms []string, includeClosed bool) 
 	query := fmt.Sprintf(`SELECT p.id, p.workspace_id, p.title, p.description, p.icon,
 		p.status, p.priority, p.lead_type, p.lead_id,
 		p.start_date, p.due_date,
-		p.created_at, p.updated_at,
+		p.created_at, p.updated_at, p.created_by, p.access_restricted, p.allowed_user_ids,
 		%s AS match_source
 	FROM project p
 	WHERE p.workspace_id = %s AND %s
@@ -857,6 +884,9 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 	args[len(args)-2] = limit
 	args[len(args)-1] = offset
 
+	args = append(args, projectPrincipal(r))
+	sqlQuery = strings.Replace(sqlQuery, "WHERE p.workspace_id =", "WHERE "+projectVisibilitySQL("p.id", "p.workspace_id", fmt.Sprintf("$%d", len(args)))+" AND p.workspace_id =", 1)
+
 	type projectSearchRow struct {
 		project     db.Project
 		matchSource string
@@ -880,6 +910,7 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 				&row.project.DueDate,
 				&row.project.CreatedAt,
 				&row.project.UpdatedAt,
+				&row.project.CreatedBy, &row.project.AccessRestricted, &row.project.AllowedUserIds,
 				&row.matchSource,
 			); err != nil {
 				return fmt.Errorf("scan: %w", err)
@@ -933,7 +964,11 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]SearchProjectResponse, len(results))
 	for i, row := range results {
-		pr := projectToResponse(row.project)
+		pr := h.projectForRequest(r, row.project)
+		if !pr.AccessAllowed {
+			resp[i] = SearchProjectResponse{ProjectResponse: pr, MatchSource: "title"}
+			continue
+		}
 		if s, ok := statsMap[pr.ID]; ok {
 			pr.IssueCount = s.TotalCount
 			pr.DoneCount = s.DoneCount

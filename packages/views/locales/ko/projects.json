@@ -166,5 +166,18 @@
     "direction_desc": "내림차순",
     "section_columns": "열",
     "view": "보기"
+  },
+  "access": {
+    "title": "프로젝트 접근 권한",
+    "restricted": "선택한 구성원만 허용",
+    "creator_hint": "생성자는 항상 접근할 수 있습니다. 변경 후 저장하세요.",
+    "search": "구성원 검색",
+    "creator": "생성자",
+    "save": "권한 저장",
+    "saved": "권한이 업데이트되었습니다",
+    "failed": "저장하지 못했습니다. 다시 시도하세요.",
+    "denied_title": "접근 권한 필요",
+    "denied_message": "{{name}} 님에게 이 프로젝트의 접근 권한을 요청하세요.",
+    "back": "프로젝트로 돌아가기"
   }
 }

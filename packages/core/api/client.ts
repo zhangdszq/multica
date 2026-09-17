@@ -1,3 +1,4 @@
+import { ProjectSchema, ProjectListSchema } from "./schemas";
 import { configStore } from "../config";
 import type {
   Issue,
@@ -490,6 +491,14 @@ export interface LoginResponse {
   token: string;
   user: User;
 }
+
+const EMPTY_PROJECT: Project = {
+  id: "", workspace_id: "", title: "", description: null, icon: null,
+  status: "planned", priority: "none", lead_type: null, lead_id: null,
+  start_date: null, due_date: null, created_at: "", updated_at: "",
+  issue_count: 0, done_count: 0, resource_count: 0, access_allowed: false,
+  can_manage_access: false, allowed_user_ids: [],
+};
 
 export class ApiError extends Error {
   readonly status: number;
@@ -3582,11 +3591,13 @@ export class ApiClient {
   async listProjects(params?: { status?: string }): Promise<ListProjectsResponse> {
     const search = new URLSearchParams();
     if (params?.status) search.set("status", params.status);
-    return this.fetch(`/api/projects?${search}`);
+    const raw = await this.fetch<unknown>(`/api/projects?${search}`);
+    return parseWithFallback(raw, ProjectListSchema, { projects: [], total: 0 }, { endpoint: "GET /api/projects" });
   }
 
   async getProject(id: string): Promise<Project> {
-    return this.fetch(`/api/projects/${id}`);
+    const raw = await this.fetch<unknown>(`/api/projects/${id}`);
+    return parseWithFallback(raw, ProjectSchema, EMPTY_PROJECT, { endpoint: "GET /api/projects/:id" });
   }
 
   async createProject(data: CreateProjectRequest): Promise<Project> {
@@ -3601,6 +3612,11 @@ export class ApiClient {
       method: "PUT",
       body: JSON.stringify(data),
     });
+  }
+
+  async updateProjectAccess(id: string, data: { access_restricted: boolean; allowed_user_ids: string[] }): Promise<Project> {
+    const raw = await this.fetch<unknown>(`/api/projects/${id}/access`, { method: "PUT", body: JSON.stringify(data) });
+    return parseWithFallback(raw, ProjectSchema, EMPTY_PROJECT, { endpoint: "PUT /api/projects/:id/access" });
   }
 
   async deleteProject(id: string): Promise<void> {

@@ -294,6 +294,8 @@ function renderProjectDetail() {
 }
 
 beforeEach(() => {
+  PROJECT.access_allowed = true;
+  PROJECT.created_by = "user-1";
   mocks.role = "admin";
   mocks.copyText.mockReset().mockResolvedValue(true);
   mocks.deleteProject.mockReset();
@@ -354,5 +356,19 @@ describe("ProjectDetail project deletion", () => {
     expect(
       screen.queryByRole("button", { name: "Delete project" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+
+describe("ProjectDetail authorization", () => {
+  it("shows the creator authorization page without mounting project content", async () => {
+    PROJECT.access_allowed = false;
+    renderProjectDetail();
+    expect(screen.getByRole("heading", { name: "Access required" })).toBeInTheDocument();
+    expect(screen.getByText("Ask User One to authorize access to this project.")).toBeInTheDocument();
+    expect(screen.queryByText("Launch Plan")).not.toBeInTheDocument();
+    expect(mocks.recordVisit).not.toHaveBeenCalled();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Back to projects" }));
+    expect(mocks.push).toHaveBeenCalledWith("/test-workspace/projects");
   });
 });

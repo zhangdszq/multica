@@ -1307,7 +1307,12 @@ export const EMPTY_SEARCH_ISSUES_RESPONSE: SearchIssuesResponse = {
   issues: [],
 };
 
-const ProjectSchema = z.object({
+export const ProjectSchema = z.object({
+  created_by: z.string().nullable().default(null),
+  access_restricted: z.boolean().default(false),
+  access_allowed: z.boolean().default(true),
+  can_manage_access: z.boolean().default(false),
+  allowed_user_ids: z.array(z.string()).default([]),
   id: z.string(),
   workspace_id: z.string(),
   title: z.string(),
@@ -3400,3 +3405,5 @@ export const EMPTY_JOIN_SHARE_LINK_RESPONSE: {
   workspace_id: "",
   workspace_slug: "",
 };
+
+export const ProjectListSchema = z.object({ projects: z.array(ProjectSchema), total: z.number() });

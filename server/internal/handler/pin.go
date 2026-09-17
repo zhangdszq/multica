@@ -124,6 +124,9 @@ func (h *Handler) CreatePin(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	case "project":
+		if !h.requireProjectAccess(w, r, itemUUID) {
+			return
+		}
 		if _, err := h.Queries.GetProjectInWorkspace(r.Context(), db.GetProjectInWorkspaceParams{
 			ID: itemUUID, WorkspaceID: wsUUID,
 		}); err != nil {

@@ -166,5 +166,18 @@
     "direction_desc": "降序",
     "section_columns": "列",
     "view": "视图"
+  },
+  "access": {
+    "title": "访问授权",
+    "restricted": "仅允许选中的成员访问",
+    "creator_hint": "创建人始终有权访问；修改名单后请保存。",
+    "search": "搜索成员",
+    "creator": "创建人",
+    "save": "保存授权",
+    "saved": "授权已更新",
+    "failed": "保存失败，请重试。",
+    "denied_title": "需要访问授权",
+    "denied_message": "请联系 {{name}} 为你授权访问此项目。",
+    "back": "返回项目列表"
   }
 }

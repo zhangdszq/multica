@@ -166,5 +166,18 @@
     "direction_desc": "降順",
     "section_columns": "列",
     "view": "ビュー"
+  },
+  "access": {
+    "title": "プロジェクトのアクセス",
+    "restricted": "選択したメンバーのみ",
+    "creator_hint": "作成者は常にアクセスできます。変更後に保存してください。",
+    "search": "メンバーを検索",
+    "creator": "作成者",
+    "save": "アクセスを保存",
+    "saved": "アクセスを更新しました",
+    "failed": "保存できませんでした。再試行してください。",
+    "denied_title": "アクセス権限が必要です",
+    "denied_message": "{{name}} にプロジェクトへのアクセス許可を依頼してください。",
+    "back": "プロジェクトに戻る"
   }
 }

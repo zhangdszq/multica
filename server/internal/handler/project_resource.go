@@ -465,6 +465,9 @@ func (h *Handler) loadProjectForResource(w http.ResponseWriter, r *http.Request,
 		writeError(w, http.StatusNotFound, "project not found")
 		return db.Project{}, false
 	}
+	if !h.requireProjectAccess(w, r, project.ID) {
+		return db.Project{}, false
+	}
 	return project, true
 }
 

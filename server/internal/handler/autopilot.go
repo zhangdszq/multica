@@ -1333,6 +1333,9 @@ func (h *Handler) parseAutopilotProjectID(
 		writeError(w, http.StatusBadRequest, "project_id must reference a project in this workspace")
 		return pgtype.UUID{}, false
 	}
+	if !h.requireProjectAccess(w, r, projectID) {
+		return pgtype.UUID{}, false
+	}
 	return projectID, true
 }
 

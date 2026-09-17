@@ -202,6 +202,9 @@ func (h *Handler) CreateIssueView(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "project not found")
 			return
 		}
+		if !h.requireProjectAccess(w, r, projUUID) {
+			return
+		}
 		scopeID = projUUID
 	case "my":
 		// My Issues is a per-user perspective; sharing it is meaningless.

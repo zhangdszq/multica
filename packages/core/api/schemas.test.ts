@@ -49,6 +49,7 @@ import {
   MALFORMED_RUNTIME_MODEL_LIST_REQUEST,
   RuntimeModelListRequestSchema,
   SearchProjectsResponseSchema,
+  ProjectSchema,
   RuntimeHourlyActivityListSchema,
   RuntimeUsageByAgentListSchema,
   RuntimeUsageByHourListSchema,
@@ -2266,5 +2267,21 @@ describe("TaskMessageListSchema", () => {
   it("downgrades an unknown message type instead of dropping the transcript", () => {
     const parsed = TaskMessageListSchema.parse([{ ...row, type: "video" }]);
     expect(parsed[0]?.type).toBe("text");
+  });
+});
+
+
+describe("Project access response validation", () => {
+  const project = { id: "p", workspace_id: "w", title: "Project", description: null, icon: null, status: "planned", priority: "none", lead_type: null, lead_id: null, created_at: "", updated_at: "" };
+  it("keeps older backends readable without granting access management", () => {
+    const result = ProjectSchema.parse(project);
+    expect(result.access_allowed).toBe(true);
+    expect(result.can_manage_access).toBe(false);
+    expect(result.allowed_user_ids).toEqual([]);
+  });
+  it("preserves explicit denial and rejects malformed permission flags", () => {
+    expect(ProjectSchema.parse({ ...project, access_allowed: false }).access_allowed).toBe(false);
+    expect(ProjectSchema.safeParse({ ...project, access_allowed: "true" }).success).toBe(false);
+    expect(ProjectSchema.safeParse({ ...project, allowed_user_ids: [1] }).success).toBe(false);
   });
 });

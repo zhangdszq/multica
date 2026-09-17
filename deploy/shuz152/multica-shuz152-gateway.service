@@ -1,0 +1,17 @@
+[Unit]
+Description=Multica SHUZ-152 isolated test gateway
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/nginx -p /opt/multica-shuz152/ -c /opt/multica-shuz152/nginx.conf -g "daemon off;"
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=3
+MemoryMax=64M
+CPUQuota=20%
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

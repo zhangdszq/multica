@@ -666,6 +666,7 @@ func main() {
 		HeartbeatScheduler:  heartbeatScheduler,
 		LLMMaxRetries:       llmMaxRetries,
 	})
+	hub.SetMessageAuthorizer(h.AuthorizeProjectMessage)
 	var replicaQueries *db.Queries
 	if replicaPool != nil {
 		replicaQueries = db.New(replicaPool)
