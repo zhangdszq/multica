@@ -29,9 +29,8 @@ The isolated server copy uses:
 Before starting the backend, pause copied autopilots and their triggers, revoke
 channel installations, remove copied access/daemon/task tokens, cancel unfinished
 tasks, and detach agents from production runtimes. Use a fresh JWT signing key.
-Keep the database dump and all env/credential files mode 0600. The gateway requires
-separate test credentials; the application uses a private test verification code
-with signup disabled. Do not copy production integration or mail credentials.
+Keep the database dump and all env/credential files mode 0600. The gateway opens directly to the Multica login page, without additional Basic
+authentication. The application uses a test verification code with signup disabled. Do not copy production integration or mail credentials.
 
 Build the backend and migrator with CGO_ENABLED=0 GOOS=linux GOARCH=amd64. Build
 web with STANDALONE=true. Runtime images inherit the matching v0.4.44 images to
