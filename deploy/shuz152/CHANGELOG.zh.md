@@ -61,6 +61,14 @@
 
 ## 测试与验收
 
+2026-09-17“未授权项目完全隐藏”增量通过：
+
+- Go：`TestProjectAccessLifecycle`，覆盖项目列表、搜索、直链、任务、资源、收藏、管理员边界及 WebSocket 权限撤销分流。
+- `@multica/core` TypeScript 类型检查通过。
+- `@multica/core` ESLint 为 0 error；2 个 warning 来自未改动的既有文件。
+- `git diff --check` 通过。
+- 移动端完整 typecheck/lint 未在本 checkout 完成：`apps/mobile/node_modules` 未安装，命令明确报 React Native/Expo 依赖及 `expo` CLI 缺失；本次移动端改动仅订阅新增的已类型化事件。
+
 功能分支交付时通过：
 
 - 前端测试 179 项。
@@ -91,6 +99,9 @@
 
 - 正式入口、HTTPS、邮箱登录、端口映射、运行时绑定、项目资源和上传文件保持不变。
 - 当前应用容器为 `multica-production-shuz152-backend` 和 `multica-production-shuz152-frontend`。
+- 2026-09-17 已将“未授权项目完全隐藏”后端 `9f31064` 部署到正式环境；`https://team.shuzhixinghua.com/health` 返回 `status=ok` 与 `commit=9f31064`。
+- 本次只替换后端镜像，前端继续使用已验收镜像 `d3bc67b`；没有数据库迁移或数据写入。
+- 切换前 Compose 已保留为 `/opt/multica-production-shuz152/compose.json.pre-9f31064`，旧后端镜像 `d3bc67b` 未删除。
 - 原 `multica-backend-1`、`multica-frontend-1` 已停止但未删除；原镜像和配置已保留。
 - 正式数据库仍为原 `multica-postgres-1`，没有用测试副本覆盖。
 - 上线前保存数据库归档、上传文件归档、原容器元数据、配置指纹和 nginx 配置。
