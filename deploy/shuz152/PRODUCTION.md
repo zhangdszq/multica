@@ -47,3 +47,20 @@ cutover and verification logs record the migration and configuration checks.
 Only permission fields for existing production projects were promoted from the
 test copy. Test-only projects/users were excluded. Historical creator claims
 were carried over only when explicitly confirmed; unknown creators remain null.
+
+Build the backend from the repository root, using one revision for both binaries
+and the complete SQL directory (never overlay only a new server binary):
+
+```sh
+docker build -f deploy/shuz152/Dockerfile.backend \
+  --build-arg COMMIT="$(git rev-parse HEAD)" \
+  --build-arg VERSION=project-access \
+  -t multica-production-shuz152-backend:$(git rev-parse --short HEAD) .
+```
+
+Before cutover, back up the live database and verify pending migrations on an
+isolated restore. Update only the backend image in the private Compose file.
+The entrypoint must run the matching migrator before starting the server.
+Readiness uses the migration manifest embedded in the server binary, so missing
+SQL files cannot silently shorten the expected database schema checklist.
+Validate comment task enqueue and runtime delivery as well as `/readyz`.

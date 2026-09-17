@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/multica-ai/multica/server/internal/selfexec"
+	schema "github.com/multica-ai/multica/server/migrations"
 )
 
 const maxSearchDepth = 4
@@ -71,24 +72,11 @@ func Files(direction string) ([]string, error) {
 	return files, nil
 }
 
-// AllVersions returns every "up" migration version found on disk, in apply
-// order. The readiness check verifies that all of them are recorded in
-// schema_migrations — checking only the lexically-last version would miss an
-// out-of-order migration (one numbered below an already-applied later one),
-// letting a server report ready while running against a schema that lacks it.
+// AllVersions uses the compiled source manifest, never the runtime directory.
+// An incomplete image must not report ready merely because its missing SQL
+// files also disappeared from the readiness checklist.
 func AllVersions() ([]string, error) {
-	files, err := Files("up")
-	if err != nil {
-		return nil, err
-	}
-	if len(files) == 0 {
-		return nil, fmt.Errorf("no up migrations found")
-	}
-	versions := make([]string, len(files))
-	for i, f := range files {
-		versions[i] = ExtractVersion(f)
-	}
-	return versions, nil
+	return schema.Versions()
 }
 
 // ExtractVersion strips the .up.sql / .down.sql suffix from a migration file.
