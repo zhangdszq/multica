@@ -2,10 +2,12 @@ Project access test deployment (SHUZ-152), based on v0.4.44.
 
 The test environment must use a separate PostgreSQL container and volume. Never
 point this build's DATABASE_URL at the production database. Migration
-500_project_access adds project creator and access policy columns. Existing
+535_project_access adds project creator and access policy columns. Existing
 projects keep workspace-wide access and an unknown creator because older
 versions did not record project creators. Workspace ownership does not grant
-project-creator permissions. Migration 501 removes the incorrect historical
+project-creator permissions. This migration originally shipped as 500 in the
+fork; its idempotent DDL supports both fresh and already-upgraded installations.
+Migration 536 removes the incorrect historical
 owner attribution from the initial test deployment, while preserving actual
 creators of new projects. Historical creators must be verified separately;
 the system does not guess them from project leads or resource uploaders.
@@ -18,7 +20,7 @@ psql -X "$TEST_DATABASE_URL" -f server/internal/migrations/testdata/project_acce
 
 The regression uses temporary tables and rolls back. It checks fresh installs,
 repair of historical attribution, idempotency, and preservation of new-project
-creators and access policies. Migration 501 stops for restricted historical
+creators and access policies. Migration 536 stops for restricted historical
 projects so their creator can be verified before removing access management.
 
 Project creators can select members in the project sidebar's Access section.

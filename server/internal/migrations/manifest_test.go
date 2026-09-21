@@ -16,7 +16,7 @@ func TestAllVersionsSurvivesIncompleteRuntimeDirectory(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(dir, "migrations"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "migrations", "501_correct_historical_project_creators.up.sql"), nil, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "migrations", "536_correct_historical_project_creators.up.sql"), nil, 0644); err != nil {
 		t.Fatal(err)
 	}
 	t.Chdir(dir)

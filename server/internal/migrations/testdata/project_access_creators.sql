@@ -5,7 +5,8 @@ CREATE TEMP TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TIMEST
 INSERT INTO project VALUES
 ('00000000-0000-0000-0000-000000000001', NULL, '2026-01-01'),
 ('00000000-0000-0000-0000-000000000002', NULL, '2026-01-03');
-\ir ../../../migrations/500_project_access.up.sql
+\ir ../../../migrations/535_project_access.up.sql
+\ir ../../../migrations/535_project_access.up.sql
 DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM project WHERE created_by IS NOT NULL) THEN
         RAISE EXCEPTION 'Fresh migration invented project creators';
@@ -17,8 +18,8 @@ UPDATE project SET created_by = '00000000-0000-0000-0000-000000000010';
 UPDATE project SET access_restricted = true,
     allowed_user_ids = ARRAY['00000000-0000-0000-0000-000000000020'::uuid]
 WHERE id = '00000000-0000-0000-0000-000000000002';
-\ir ../../../migrations/501_correct_historical_project_creators.up.sql
-\ir ../../../migrations/501_correct_historical_project_creators.up.sql
+\ir ../../../migrations/536_correct_historical_project_creators.up.sql
+\ir ../../../migrations/536_correct_historical_project_creators.up.sql
 DO $$ BEGIN
     IF EXISTS (SELECT 1 FROM project WHERE id = '00000000-0000-0000-0000-000000000001'
         AND (created_by IS NOT NULL OR access_restricted)) THEN
@@ -37,8 +38,8 @@ INSERT INTO project (id, workspace_id, created_at) VALUES
 ('7181cff2-8d1f-4cb4-9cae-c4959cf4c697', '5d54d458-153b-4612-a1a4-e3346de2bcb2', '2026-01-01'),
 ('0bf8cd8a-4604-4a1a-a754-03c1955e5cb8', '5d54d458-153b-4612-a1a4-e3346de2bcb2', '2026-01-01'),
 ('ef04ece8-8c18-4c34-b700-9f9cfff3124b', '00000000-0000-0000-0000-000000000099', '2026-01-01');
-\ir ../../../migrations/502_backfill_confirmed_project_creators.up.sql
-\ir ../../../migrations/502_backfill_confirmed_project_creators.up.sql
+\ir ../../../migrations/537_backfill_confirmed_project_creators.up.sql
+\ir ../../../migrations/537_backfill_confirmed_project_creators.up.sql
 DO $$ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM project
@@ -62,8 +63,8 @@ DO $$ BEGIN
         RAISE EXCEPTION 'Confirmed attribution escaped its workspace guard';
     END IF;
 END $$;
-\ir ../../../migrations/502_backfill_confirmed_project_creators.down.sql
-\ir ../../../migrations/502_backfill_confirmed_project_creators.down.sql
+\ir ../../../migrations/537_backfill_confirmed_project_creators.down.sql
+\ir ../../../migrations/537_backfill_confirmed_project_creators.down.sql
 DO $$ BEGIN
     IF EXISTS (
         SELECT 1 FROM project

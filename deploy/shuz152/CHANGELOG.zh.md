@@ -116,9 +116,9 @@
 
 ## 相关文件
 
-- `server/migrations/500_project_access.*.sql`：权限字段。
-- `server/migrations/501_correct_historical_project_creators.*.sql`：历史错误归属修复。
-- `server/migrations/502_backfill_confirmed_project_creators.*.sql`：已确认项目创建人。
+- `server/migrations/535_project_access.*.sql`：权限字段（由 500 顺延，兼容已部署实例）。
+- `server/migrations/536_correct_historical_project_creators.*.sql`：历史错误归属修复。
+- `server/migrations/537_backfill_confirmed_project_creators.*.sql`：已确认项目创建人。
 - `server/internal/handler/project_access.go`：授权规则和更新接口。
 - `server/internal/handler/project_access_realtime.go`：实时消息过滤。
 - `server/internal/handler/project_access_test.go`：后端授权回归。
