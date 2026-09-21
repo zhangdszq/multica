@@ -32,6 +32,25 @@ DO $$ BEGIN
     END IF;
 END $$;
 
+-- An installation that already recorded the original 501 migration must not
+-- reinterpret a project restricted later as an unverified historical row.
+INSERT INTO schema_migrations VALUES ('501_correct_historical_project_creators', '2026-01-02');
+UPDATE project SET
+    created_by = '00000000-0000-0000-0000-000000000010',
+    access_restricted = true
+WHERE id = '00000000-0000-0000-0000-000000000001';
+\ir ../../../migrations/536_correct_historical_project_creators.up.sql
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM project
+        WHERE id = '00000000-0000-0000-0000-000000000001'
+          AND created_by = '00000000-0000-0000-0000-000000000010'
+          AND access_restricted
+    ) THEN
+        RAISE EXCEPTION 'Renumbered creator correction reprocessed an upgraded installation';
+    END IF;
+END $$;
+
 -- Confirmed SHUZ-152 attribution is scoped to the intended workspace and is
 -- safe to apply and roll back more than once.
 INSERT INTO project (id, workspace_id, created_at) VALUES

@@ -5,6 +5,16 @@ DO $$
 DECLARE
     access_migration_applied_at TIMESTAMPTZ;
 BEGIN
+    -- Installations that already ran this fork migration under its original
+    -- version have completed the correction. Do not reinterpret projects that
+    -- became restricted later as unverified historical data.
+    IF EXISTS (
+        SELECT 1 FROM schema_migrations
+        WHERE version = '501_correct_historical_project_creators'
+    ) THEN
+        RETURN;
+    END IF;
+
     SELECT MIN(applied_at) INTO access_migration_applied_at
     FROM schema_migrations
     WHERE version IN ('500_project_access', '535_project_access');
@@ -25,4 +35,8 @@ WITH access_migration AS (
 )
 UPDATE project p SET created_by = NULL
 FROM access_migration m
-WHERE p.created_at < m.applied_at AND p.created_by IS NOT NULL;
+WHERE p.created_at < m.applied_at AND p.created_by IS NOT NULL
+  AND NOT EXISTS (
+      SELECT 1 FROM schema_migrations
+      WHERE version = '501_correct_historical_project_creators'
+  );
