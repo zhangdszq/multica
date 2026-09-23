@@ -60,16 +60,14 @@
   grid-column: 1 / -1;
 }
 
-/* Tiptap's inline image NodeView is wrapped by a top-level paragraph. A
- * paragraph whose only child is an image renderer is the actual grid item;
- * prose paragraphs (including those with inline images and text) continue to
- * span the full description width. */
+/* ReactNodeViewRenderer adds this outer direct child around ImageView. It is
+ * the grid item; the inner .image-node-view remains responsible for editor
+ * selection and attachment controls. */
 .issue-description-image-layout
   .rich-text-editor.ProseMirror
-  > p:has(> .react-renderer.node-image:only-child) {
+  > .react-renderer.node-image {
   grid-column: auto;
   min-width: 0;
-  margin-block: 0;
 }
 
 .issue-description-image-layout .image-node-view {
