@@ -56,22 +56,35 @@
   width: 100%;
 }
 
-.issue-description-image-layout
-  .rich-text-editor.ProseMirror
-  > :not(.image-node-view) {
+.issue-description-image-layout .rich-text-editor.ProseMirror > * {
   grid-column: 1 / -1;
 }
 
-.issue-description-image-layout .image-node-view {
+/* Tiptap's inline image NodeView is wrapped by a top-level paragraph. A
+ * paragraph whose only child is an image renderer is the actual grid item;
+ * prose paragraphs (including those with inline images and text) continue to
+ * span the full description width. */
+.issue-description-image-layout
+  .rich-text-editor.ProseMirror
+  > p:has(> .react-renderer.node-image:only-child) {
   grid-column: auto;
+  min-width: 0;
+  margin-block: 0;
+}
+
+.issue-description-image-layout .image-node-view {
+  display: block !important;
+  width: 100%;
   min-width: 0;
 }
 
 .issue-description-image-layout .image-node {
+  display: block !important;
+  width: 100%;
   min-width: 0;
 }
 
-.issue-description-image-layout .image-figure {
+.issue-description-image-layout .rich-text-editor .image-figure {
   display: block;
   width: 100%;
   max-width: none;
@@ -81,7 +94,7 @@
   background: color-mix(in srgb, var(--muted) 72%, transparent);
 }
 
-.issue-description-image-layout .image-content {
+.issue-description-image-layout .rich-text-editor .image-content {
   width: 100%;
   height: 100%;
   margin: 0;
