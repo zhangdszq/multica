@@ -70,6 +70,11 @@ import { AttachmentDownloadProvider } from "../editor/attachment-download-contex
 import { Attachment as AttachmentRenderer } from "../editor/attachment";
 import { computeClosedFenceOffsets } from "./streaming-fence";
 import { remarkRepairCjkStrongTrailingWhitespace } from "./cjk-emphasis";
+import { rehypeImageGallery } from "./rehype-image-gallery";
+import {
+  IssueImageGallery,
+  useIssueImageLayout,
+} from "../issues/components/issue-image-layout-context";
 import {
   CodeBlockShell,
   RichFenceBlock,
@@ -432,6 +437,9 @@ const COMPONENTS: Partial<Components> = {
 
   // FileCard — intercept <div data-type="fileCard"> from preprocessMarkdown
   div: ({ node, children, ...props }) => {
+    if (stringProperty(node, "dataType") === "imageGallery") {
+      return <IssueImageGallery>{children}</IssueImageGallery>;
+    }
     if (stringProperty(node, "dataType") === "fileCard") {
       const rawHref = stringProperty(node, "dataHref");
       const href = isAllowedFileCardHref(rawHref) ? rawHref : "";
@@ -476,6 +484,13 @@ const REHYPE_PLUGINS = [
   rehypeKatex,
 ] satisfies NonNullable<ReactMarkdownOptions["rehypePlugins"]>;
 
+const REHYPE_PLUGINS_WITH_IMAGE_GALLERY = [
+  rehypeRaw,
+  rehypeImageGallery,
+  [rehypeSanitize, markdownSanitizeSchema],
+  rehypeKatex,
+] satisfies NonNullable<ReactMarkdownOptions["rehypePlugins"]>;
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -509,6 +524,8 @@ export const RichContent = memo(function RichContent({
   phase = "settled",
   className,
 }: RichContentProps) {
+  const imageLayout = useIssueImageLayout();
+  const imageGalleryEnabled = imageLayout !== null;
   // Subscribed, not read once. The CDN config is fetched asynchronously after
   // auth, so content that renders first would otherwise keep its legacy CDN
   // links as plain anchors permanently — the preprocess step that turns them
@@ -545,7 +562,7 @@ export const RichContent = memo(function RichContent({
       <ClosedFenceContext.Provider value={closedFences}>
         <ReactMarkdown
           remarkPlugins={REMARK_PLUGINS}
-          rehypePlugins={REHYPE_PLUGINS}
+          rehypePlugins={imageGalleryEnabled ? REHYPE_PLUGINS_WITH_IMAGE_GALLERY : REHYPE_PLUGINS}
           urlTransform={markdownUrlTransform}
           components={COMPONENTS}
         >
@@ -553,7 +570,7 @@ export const RichContent = memo(function RichContent({
         </ReactMarkdown>
       </ClosedFenceContext.Provider>
     ),
-    [processed, closedFences],
+    [processed, closedFences, imageGalleryEnabled],
   );
 
   return (

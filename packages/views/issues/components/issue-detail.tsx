@@ -157,6 +157,7 @@ import {
   useAnimatedRightSidebarState,
   useRightSidebarShortcut,
 } from "../../layout/animated-right-sidebar";
+import { IssueImageLayoutProvider } from "./issue-image-layout-context";
 
 /**
  * Memento entry recording that the comment-highlight deep link for this
@@ -2763,6 +2764,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
     // Hosts the one image viewer this issue's images page through — see
     // ImageSequenceProvider. Wraps the whole column so the description
     // editor's images and the timeline's images share one sequence.
+    <IssueImageLayoutProvider>
     <CurrentIssueRenderContextProvider value={currentIssueRenderContext}>
     <ImageSequenceProvider items={imageSequence}>
     <div className="relative flex h-full min-w-0 flex-1 flex-col">
@@ -3506,6 +3508,7 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
       </div>
     </ImageSequenceProvider>
     </CurrentIssueRenderContextProvider>
+    </IssueImageLayoutProvider>
   );
 
   if (isMobile) {

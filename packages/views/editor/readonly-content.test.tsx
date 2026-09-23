@@ -89,6 +89,7 @@ Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
 import mermaid from "mermaid";
 import { ReadonlyContent } from "./readonly-content";
 import { composeAnnotatedReply } from "@multica/core/drafts/reply-annotation";
+import { IssueImageLayoutProvider } from "../issues/components/issue-image-layout-context";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -134,6 +135,36 @@ describe("ReadonlyContent line breaks", () => {
   it("renders a blank-line gap as separate paragraphs", () => {
     const { container } = render(<ReadonlyContent content={"para one\n\npara two"} />);
     expect(container.querySelectorAll("p").length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe("ReadonlyContent issue image galleries", () => {
+  function renderGallery(ui: ReactElement) {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+    return render(
+      <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+    );
+  }
+
+  it("groups adjacent top-level image blocks inside issue detail", () => {
+    const { container } = renderGallery(
+      <IssueImageLayoutProvider>
+        <ReadonlyContent content={"![](https://example.test/a.png)\n\n![](https://example.test/b.png)"} />
+      </IssueImageLayoutProvider>,
+    );
+
+    const gallery = container.querySelector(".issue-image-gallery");
+    expect(gallery).not.toBeNull();
+    expect(gallery?.querySelectorAll("img")).toHaveLength(2);
+  });
+
+  it("keeps the shared renderer unchanged outside issue detail", () => {
+    const { container } = renderGallery(
+      <ReadonlyContent content={"![](https://example.test/a.png)\n\n![](https://example.test/b.png)"} />,
+    );
+    expect(container.querySelector(".issue-image-gallery")).toBeNull();
   });
 });
 

@@ -379,6 +379,12 @@ vi.mock("@multica/core/issues/stores", async () => ({
     },
   ),
   selectRecentIssues: () => () => [],
+  ISSUE_IMAGE_COLUMN_OPTIONS: ["auto", "1", "2", "3"],
+  isIssueImageColumns: (value: unknown) => ["auto", "1", "2", "3"].includes(String(value)),
+  useIssueImageLayoutStore: (selector?: any) => {
+    const state = { columns: "auto", setColumns: vi.fn() };
+    return selector ? selector(state) : state;
+  },
   useCommentCollapseStore: (selector?: any) => {
     const state = {
       collapsedByIssue: {},

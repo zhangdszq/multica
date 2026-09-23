@@ -1,0 +1,54 @@
+.issue-image-gallery-shell {
+  container-type: inline-size;
+  width: 100%;
+}
+
+.issue-image-gallery {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.issue-image-gallery .image-node {
+  display: block !important;
+  min-width: 0;
+  text-align: center;
+}
+
+.issue-image-gallery .image-figure {
+  display: block;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background: color-mix(in srgb, var(--muted) 72%, transparent);
+}
+
+.issue-image-gallery .image-content {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  object-fit: contain;
+}
+
+@container (min-width: 30rem) {
+  .issue-image-gallery-shell:is(
+      [data-image-columns="auto"],
+      [data-image-columns="2"],
+      [data-image-columns="3"]
+    )
+    .issue-image-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 45rem) {
+  .issue-image-gallery-shell:is(
+      [data-image-columns="auto"],
+      [data-image-columns="3"]
+    )
+    .issue-image-gallery {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

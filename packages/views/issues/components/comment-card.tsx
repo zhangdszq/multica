@@ -51,6 +51,8 @@ import { InlineCommentRun, useInlineCommentRunState, type InlineCommentRunState 
 import { EMPTY_COMMENT_RUNS, showCommentRunInHeader, type CommentRun } from "./comment-runs";
 import { useCommentAnnotations } from "./use-comment-annotations";
 import { useRunCommentMotion } from "./use-run-comment-motion";
+import { IssueImageGallery, useIssueImageLayout } from "./issue-image-layout-context";
+import { groupAttachmentRuns } from "./image-attachment-runs";
 
 const commentActionClassName =
   "text-muted-foreground aria-expanded:bg-transparent aria-expanded:hover:bg-muted dark:aria-expanded:hover:bg-muted/50";
@@ -205,6 +207,7 @@ export function AttachmentList({
   className?: string;
   onRemove?: (attachmentId: string) => void;
 }) {
+  const imageLayout = useIssueImageLayout();
   if (!attachments?.length) return null;
   // Skip attachments whose URL (stable or legacy) is already referenced in the
   // markdown content, and duplicates of the same file that are referenced.
@@ -213,17 +216,29 @@ export function AttachmentList({
   const standalone = selectStandaloneAttachments(content, attachments);
   if (!standalone.length) return null;
 
+  const renderAttachment = (attachment: Attachment) => (
+    <AttachmentRenderer
+      key={attachment.id}
+      attachment={{ kind: "record", attachment }}
+      editable={!!onRemove}
+      onDelete={onRemove ? () => onRemove(attachment.id) : undefined}
+    />
+  );
+
   return (
     <AttachmentDownloadProvider attachments={attachments}>
       <div className={cn("flex flex-col gap-1", className)}>
-        {standalone.map((a) => (
-          <AttachmentRenderer
-            key={a.id}
-            attachment={{ kind: "record", attachment: a }}
-            editable={!!onRemove}
-            onDelete={onRemove ? () => onRemove(a.id) : undefined}
-          />
-        ))}
+        {imageLayout === null
+          ? standalone.map(renderAttachment)
+          : groupAttachmentRuns(standalone).map((run) =>
+              run.kind === "images" ? (
+                <IssueImageGallery key={`images-${run.attachments[0]?.id}`}>
+                  {run.attachments.map(renderAttachment)}
+                </IssueImageGallery>
+              ) : (
+                renderAttachment(run.attachment)
+              ),
+            )}
       </div>
     </AttachmentDownloadProvider>
   );

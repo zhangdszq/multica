@@ -140,6 +140,7 @@ import {
   IssueActionsContextMenu,
   IssueContextMenuProvider,
 } from "../issue-actions-context-menu";
+import { useIssueImageLayoutStore } from "@multica/core/issues/stores";
 
 const listTasksByIssueMock = apiMocks.listTasksByIssue;
 
@@ -185,6 +186,7 @@ beforeEach(() => {
   toastSuccessMock.mockReset();
   listTasksByIssueMock.mockReset();
   listTasksByIssueMock.mockResolvedValue([]);
+  useIssueImageLayoutStore.setState({ columns: "auto" });
 });
 
 describe("IssueActionsDropdown", () => {
@@ -202,6 +204,7 @@ describe("IssueActionsDropdown", () => {
 
     // Base UI portals the popup; role=menu lands on the popup wrapper.
     expect(await screen.findByText("Status")).toBeInTheDocument();
+    expect(screen.getByText("Image layout")).toBeInTheDocument();
     expect(screen.getByText("Priority")).toBeInTheDocument();
     expect(screen.getByText("Assignee")).toBeInTheDocument();
     expect(screen.getByText("Due date")).toBeInTheDocument();
@@ -213,6 +216,25 @@ describe("IssueActionsDropdown", () => {
     expect(screen.queryByText("Create sub-issue")).not.toBeInTheDocument();
     expect(screen.queryByText("Set parent issue...")).not.toBeInTheDocument();
     expect(screen.queryByText("Add sub-issue...")).not.toBeInTheDocument();
+  });
+
+  it("updates the personal image column preference from its submenu", async () => {
+    render(
+      wrap(
+        <IssueActionsDropdown
+          issue={mockIssue}
+          trigger={<button data-testid="trigger">Menu</button>}
+        />,
+      ),
+    );
+
+    fireEvent.click(screen.getByTestId("trigger"));
+    fireEvent.click(await screen.findByText("Image layout"));
+    fireEvent.click(await screen.findByText("2 columns"));
+
+    await waitFor(() => {
+      expect(useIssueImageLayoutStore.getState().columns).toBe("2");
+    });
   });
 
   it("clicking the Assignee item opens the shared AssigneePicker popover", async () => {
