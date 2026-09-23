@@ -19,10 +19,11 @@ function ImageView({ node, editor, selected, deleteNode }: NodeViewProps) {
   const width = (node.attrs.width as number | null) ?? undefined;
   const height = (node.attrs.height as number | null) ?? undefined;
 
-  // <Attachment> emits its own .image-node wrapper, so the NodeViewWrapper
-  // stays unclassed — no double image-node.
+  // Keep a distinct class on the outer NodeView. Issue descriptions use this
+  // direct ProseMirror child as the grid item, while <Attachment> continues to
+  // own the inner .image-node figure and its controls.
   return (
-    <NodeViewWrapper>
+    <NodeViewWrapper className="image-node-view">
       <Attachment
         attachment={{
           kind: "url",

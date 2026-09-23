@@ -157,7 +157,10 @@ import {
   useAnimatedRightSidebarState,
   useRightSidebarShortcut,
 } from "../../layout/animated-right-sidebar";
-import { IssueImageLayoutProvider } from "./issue-image-layout-context";
+import {
+  IssueDescriptionImageLayout,
+  IssueImageLayoutProvider,
+} from "./issue-image-layout-context";
 
 /**
  * Memento entry recording that the comment-highlight deep link for this
@@ -3071,48 +3074,50 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
           >
             {descriptionAnnotations.popup}
             <div data-comment-content={descriptionSourceId}>
-              <ContentEditor
-                ref={descEditorRef}
-                key={id}
-                value={issue.description ?? ""}
-                placeholder={t(($) => $.detail.desc_placeholder)}
-                onUpdate={(md, baseMarkdown) => {
-                  // Bind any pending uploads still referenced in the markdown
-                  // so they appear in `issueAttachments` after refresh and the
-                  // editor's text/code preview keeps working past reload.
-                  //
-                  // Match with `contentReferencesAttachment`, NOT `md.includes(a.url)`:
-                  // the editor persists the durable `markdownLink`
-                  // (`/api/attachments/<id>/download` / `markdown_url`) into the
-                  // body, never the raw storage `a.url`. A bare `md.includes(a.url)`
-                  // therefore never matches, so the upload is never linked via
-                  // `attachment_ids`. After reload it's absent from
-                  // `issueAttachments`, the renderer can't resolve it to a
-                  // freshly-signed `download_url`, and the persisted auth-gated
-                  // download endpoint fails to load as a native <img> on clients
-                  // whose origin isn't the API host (Desktop/Electron, mobile
-                  // webview) — while still working on web via the cookie/proxy.
-                  // This mirrors the comment/reply/chat composers, which already
-                  // bind via `contentReferencesAttachment` (MUL-3130 / MUL-3192).
-                  const ids = descPendingAttachmentsRef.current
-                    .filter((a) => contentReferencesAttachment(md, a))
-                    .map((a) => a.id);
-                  queueDescriptionSave({
-                    markdown: md,
-                    baseMarkdown,
-                    attachmentIds: ids,
-                  });
-                }}
-                onUploadFile={handleDescriptionUpload}
-                debounceMs={1500}
-                // Closing the issue modal must save what the user last saw —
-                // without the flush, a paste followed by a quick close loses
-                // the image markdown and its attachment_ids bind (MUL-3254).
-                flushPendingOnUnmount
-                currentIssueId={id}
-                selectionAction={descriptionSelectionAction}
-                attachments={descEditorAttachments}
-              />
+              <IssueDescriptionImageLayout>
+                <ContentEditor
+                  ref={descEditorRef}
+                  key={id}
+                  value={issue.description ?? ""}
+                  placeholder={t(($) => $.detail.desc_placeholder)}
+                  onUpdate={(md, baseMarkdown) => {
+                    // Bind any pending uploads still referenced in the markdown
+                    // so they appear in `issueAttachments` after refresh and the
+                    // editor's text/code preview keeps working past reload.
+                    //
+                    // Match with `contentReferencesAttachment`, NOT `md.includes(a.url)`:
+                    // the editor persists the durable `markdownLink`
+                    // (`/api/attachments/<id>/download` / `markdown_url`) into the
+                    // body, never the raw storage `a.url`. A bare `md.includes(a.url)`
+                    // therefore never matches, so the upload is never linked via
+                    // `attachment_ids`. After reload it's absent from
+                    // `issueAttachments`, the renderer can't resolve it to a
+                    // freshly-signed `download_url`, and the persisted auth-gated
+                    // download endpoint fails to load as a native <img> on clients
+                    // whose origin isn't the API host (Desktop/Electron, mobile
+                    // webview) — while still working on web via the cookie/proxy.
+                    // This mirrors the comment/reply/chat composers, which already
+                    // bind via `contentReferencesAttachment` (MUL-3130 / MUL-3192).
+                    const ids = descPendingAttachmentsRef.current
+                      .filter((a) => contentReferencesAttachment(md, a))
+                      .map((a) => a.id);
+                    queueDescriptionSave({
+                      markdown: md,
+                      baseMarkdown,
+                      attachmentIds: ids,
+                    });
+                  }}
+                  onUploadFile={handleDescriptionUpload}
+                  debounceMs={1500}
+                  // Closing the issue modal must save what the user last saw —
+                  // without the flush, a paste followed by a quick close loses
+                  // the image markdown and its attachment_ids bind (MUL-3254).
+                  flushPendingOnUnmount
+                  currentIssueId={id}
+                  selectionAction={descriptionSelectionAction}
+                  attachments={descEditorAttachments}
+                />
+              </IssueDescriptionImageLayout>
             </div>
 
             <div className="flex items-center gap-1 mt-3">

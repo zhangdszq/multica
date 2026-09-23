@@ -32,23 +32,92 @@
   object-fit: contain;
 }
 
+.issue-image-gallery-shell[data-image-columns="2"] .issue-image-gallery {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.issue-image-gallery-shell[data-image-columns="3"] .issue-image-gallery {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.issue-description-image-layout {
+  container-type: inline-size;
+  width: 100%;
+}
+
+/* The issue description is always an editable ProseMirror surface. Make its
+ * top-level blocks a grid: prose/file blocks span the whole row, while image
+ * NodeViews occupy one configured column. This also keeps a lone image at 1/2
+ * or 1/3 width when the user explicitly selects two or three columns. */
+.issue-description-image-layout .rich-text-editor.ProseMirror {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 0.5rem;
+  width: 100%;
+}
+
+.issue-description-image-layout
+  .rich-text-editor.ProseMirror
+  > :not(.image-node-view) {
+  grid-column: 1 / -1;
+}
+
+.issue-description-image-layout .image-node-view {
+  grid-column: auto;
+  min-width: 0;
+}
+
+.issue-description-image-layout .image-node {
+  min-width: 0;
+}
+
+.issue-description-image-layout .image-figure {
+  display: block;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background: color-mix(in srgb, var(--muted) 72%, transparent);
+}
+
+.issue-description-image-layout .image-content {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  object-fit: contain;
+}
+
+.issue-description-image-layout[data-image-columns="2"]
+  .rich-text-editor.ProseMirror {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.issue-description-image-layout[data-image-columns="3"]
+  .rich-text-editor.ProseMirror {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
 @container (min-width: 30rem) {
-  .issue-image-gallery-shell:is(
-      [data-image-columns="auto"],
-      [data-image-columns="2"],
-      [data-image-columns="3"]
-    )
+  .issue-image-gallery-shell[data-image-columns="auto"]
     .issue-image-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .issue-description-image-layout[data-image-columns="auto"]
+    .rich-text-editor.ProseMirror {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @container (min-width: 45rem) {
-  .issue-image-gallery-shell:is(
-      [data-image-columns="auto"],
-      [data-image-columns="3"]
-    )
+  .issue-image-gallery-shell[data-image-columns="auto"]
     .issue-image-gallery {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .issue-description-image-layout[data-image-columns="auto"]
+    .rich-text-editor.ProseMirror {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

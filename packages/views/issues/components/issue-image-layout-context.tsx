@@ -42,3 +42,23 @@ export function IssueImageGallery({
     </div>
   );
 }
+
+export function IssueDescriptionImageLayout({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  const columns = useIssueImageLayout();
+  if (columns === null) return <>{children}</>;
+
+  return (
+    <div
+      className={cn("issue-description-image-layout", className)}
+      data-image-columns={columns}
+    >
+      {children}
+    </div>
+  );
+}
