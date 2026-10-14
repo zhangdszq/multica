@@ -884,7 +884,9 @@ func (h *Handler) SearchProjects(w http.ResponseWriter, r *http.Request) {
 	args[len(args)-1] = offset
 
 	args = append(args, projectPrincipal(r))
-	sqlQuery = strings.Replace(sqlQuery, "WHERE p.workspace_id =", "WHERE "+projectVisibilitySQL("p.id", "p.workspace_id", fmt.Sprintf("$%d", len(args)))+" AND p.workspace_id =", 1)
+	userParam := fmt.Sprintf("$%d", len(args))
+	args = append(args, runtimeProjectAccess(r))
+	sqlQuery = strings.Replace(sqlQuery, "WHERE p.workspace_id =", "WHERE "+projectVisibilitySQL("p.id", "p.workspace_id", userParam, fmt.Sprintf("$%d", len(args)))+" AND p.workspace_id =", 1)
 
 	type projectSearchRow struct {
 		project     db.Project

@@ -1173,7 +1173,9 @@ func (h *Handler) SearchIssues(w http.ResponseWriter, r *http.Request) {
 	args[len(args)-1] = offset
 
 	args = append(args, projectPrincipal(r))
-	sqlQuery = strings.Replace(sqlQuery, "WHERE i.workspace_id =", "WHERE "+projectVisibilitySQL("i.project_id", "i.workspace_id", fmt.Sprintf("$%d", len(args)))+" AND i.workspace_id =", 1)
+	userParam := fmt.Sprintf("$%d", len(args))
+	args = append(args, runtimeProjectAccess(r))
+	sqlQuery = strings.Replace(sqlQuery, "WHERE i.workspace_id =", "WHERE "+projectVisibilitySQL("i.project_id", "i.workspace_id", userParam, fmt.Sprintf("$%d", len(args)))+" AND i.workspace_id =", 1)
 
 	var results []searchResult
 	err := runSearchQuery(ctx, h.TxStarter, sqlQuery, args, func(rows pgx.Rows) error {
@@ -1398,17 +1400,18 @@ func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		issues, err := h.Queries.ListOpenIssues(ctx, db.ListOpenIssuesParams{
-			WorkspaceID:        wsUUID,
-			TerminalStatusKeys: terminalStatusKeys,
-			Priority:           priorityFilter,
-			AssigneeID:         assigneeFilter,
-			AssigneeIds:        assigneeIdsFilter,
-			CreatorID:          creatorFilter,
-			ProjectID:          projectFilter,
-			AccessUserID:       parseUUID(projectPrincipal(r)),
-			InvolvesUserID:     involvesUserFilter,
-			MetadataFilter:     metadataFilter,
-			PropertiesFilter:   openPropertiesFilter,
+			WorkspaceID:          wsUUID,
+			TerminalStatusKeys:   terminalStatusKeys,
+			Priority:             priorityFilter,
+			AssigneeID:           assigneeFilter,
+			AssigneeIds:          assigneeIdsFilter,
+			CreatorID:            creatorFilter,
+			ProjectID:            projectFilter,
+			AccessUserID:         parseUUID(projectPrincipal(r)),
+			RuntimeProjectAccess: runtimeProjectAccess(r),
+			InvolvesUserID:       involvesUserFilter,
+			MetadataFilter:       metadataFilter,
+			PropertiesFilter:     openPropertiesFilter,
 		})
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to list issues")
@@ -1566,7 +1569,7 @@ func (h *Handler) ListIssues(w http.ResponseWriter, r *http.Request) {
 		args = append(args, v)
 		return "$" + strconv.Itoa(len(args))
 	}
-	where = append(where, projectVisibilitySQL("i.project_id", "i.workspace_id", addArg(projectPrincipal(r))))
+	where = append(where, projectVisibilitySQL("i.project_id", "i.workspace_id", addArg(projectPrincipal(r)), addArg(runtimeProjectAccess(r))))
 	if len(statusCategoriesFilter) > 0 {
 		// Expanded to concrete status keys rather than filtered through
 		// issue_effective_status(): wrapping the column in a function makes the
@@ -2058,7 +2061,7 @@ func (h *Handler) ListGroupedIssues(w http.ResponseWriter, r *http.Request) {
 		args = append(args, v)
 		return "$" + strconv.Itoa(len(args))
 	}
-	where = append(where, projectVisibilitySQL("i.project_id", "i.workspace_id", addArg(projectPrincipal(r))))
+	where = append(where, projectVisibilitySQL("i.project_id", "i.workspace_id", addArg(projectPrincipal(r)), addArg(runtimeProjectAccess(r))))
 
 	statuses := splitCommaParam(r.URL.Query().Get("statuses"))
 	if len(statuses) == 0 {
@@ -2631,9 +2634,10 @@ func (h *Handler) ListChildrenByParents(w http.ResponseWriter, r *http.Request) 
 	}
 
 	children, err := h.Queries.ListChildrenByParents(r.Context(), db.ListChildrenByParentsParams{
-		AccessUserID: parseUUID(projectPrincipal(r)),
-		WorkspaceID:  wsUUID,
-		ParentIds:    parentIDs,
+		AccessUserID:         parseUUID(projectPrincipal(r)),
+		RuntimeProjectAccess: runtimeProjectAccess(r),
+		WorkspaceID:          wsUUID,
+		ParentIds:            parentIDs,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to list child issues")
@@ -2679,9 +2683,10 @@ func (h *Handler) ChildIssueProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	rows, err := h.Queries.ChildIssueProgress(r.Context(), db.ChildIssueProgressParams{
-		AccessUserID:       parseUUID(projectPrincipal(r)),
-		WorkspaceID:        wsUUID,
-		TerminalStatusKeys: terminalStatusKeys,
+		AccessUserID:         parseUUID(projectPrincipal(r)),
+		RuntimeProjectAccess: runtimeProjectAccess(r),
+		WorkspaceID:          wsUUID,
+		TerminalStatusKeys:   terminalStatusKeys,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to get child issue progress")

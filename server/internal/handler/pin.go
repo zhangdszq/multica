@@ -83,7 +83,7 @@ func (h *Handler) ListPins(w http.ResponseWriter, r *http.Request) {
 			project, err := h.Queries.GetProjectInWorkspace(r.Context(), db.GetProjectInWorkspaceParams{
 				ID: p.ItemID, WorkspaceID: parseUUID(workspaceID),
 			})
-			if err != nil || !projectAllowsUser(project, userID) {
+			if err != nil || !projectAllowsRequest(r, project) {
 				continue
 			}
 		}
