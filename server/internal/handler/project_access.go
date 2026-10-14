@@ -13,11 +13,22 @@ import (
 
 // projectVisibilitySQL is composed only from constant column names and SQL
 // placeholders. The principal is always a bound parameter.
-func projectVisibilitySQL(projectColumn, workspaceColumn, userParam string) string {
-	return fmt.Sprintf(`NOT EXISTS (SELECT 1 FROM project pa WHERE pa.id = %s
+func projectVisibilitySQL(projectColumn, workspaceColumn, userParam, runtimeParam string) string {
+	return fmt.Sprintf(`(%s::boolean OR NOT EXISTS (SELECT 1 FROM project pa WHERE pa.id = %s
         AND pa.workspace_id = %s AND pa.access_restricted
         AND pa.created_by IS DISTINCT FROM %s::uuid
-        AND NOT (%s::uuid = ANY(pa.allowed_user_ids)))`, projectColumn, workspaceColumn, userParam, userParam)
+        AND NOT (%s::uuid = ANY(pa.allowed_user_ids))))`, runtimeParam, projectColumn, workspaceColumn, userParam, userParam)
+}
+
+// Auth middleware stamps this header only after validating a task token.
+// Runtime work belongs to its workspace even when its owner lacks a project's
+// member grant. Human sessions and PATs still use the member access list.
+func runtimeProjectAccess(r *http.Request) bool {
+	return r.Header.Get("X-Actor-Source") == "task_token"
+}
+
+func projectAllowsRequest(r *http.Request, p db.Project) bool {
+	return runtimeProjectAccess(r) || projectAllowsUser(p, requestUserID(r))
 }
 
 func projectPrincipal(r *http.Request) string {
@@ -48,7 +59,7 @@ func (h *Handler) canReadProjectIssue(r *http.Request, issueID, workspaceID pgty
 		return true
 	}
 	p, err := h.Queries.GetProjectInWorkspace(r.Context(), db.GetProjectInWorkspaceParams{ID: issue.ProjectID, WorkspaceID: workspaceID})
-	return err == nil && projectAllowsUser(p, requestUserID(r))
+	return err == nil && projectAllowsRequest(r, p)
 }
 
 func projectAllowsUser(p db.Project, userID string) bool {
@@ -74,8 +85,8 @@ func projectAllowsUser(p db.Project, userID string) bool {
 // clients, but a false response must never cross the HTTP boundary.
 func (h *Handler) projectForRequest(r *http.Request, p db.Project) ProjectResponse {
 	resp := projectToResponse(p)
-	resp.AccessAllowed = projectAllowsUser(p, requestUserID(r))
-	resp.CanManageAccess = p.CreatedBy.Valid && uuidToString(p.CreatedBy) == requestUserID(r)
+	resp.AccessAllowed = projectAllowsRequest(r, p)
+	resp.CanManageAccess = !runtimeProjectAccess(r) && p.CreatedBy.Valid && uuidToString(p.CreatedBy) == requestUserID(r)
 	resp.AllowedUserIDs = []string{}
 	if resp.CanManageAccess {
 		for _, id := range p.AllowedUserIds {
@@ -104,7 +115,7 @@ func (h *Handler) requireProjectAccess(w http.ResponseWriter, r *http.Request, p
 		writeError(w, http.StatusNotFound, "project not found")
 		return false
 	}
-	if !projectAllowsUser(p, requestUserID(r)) {
+	if !projectAllowsRequest(r, p) {
 		writeError(w, http.StatusNotFound, "resource not found")
 		return false
 	}

@@ -18,17 +18,18 @@ SELECT parent_issue_id,
 FROM issue
 WHERE issue.workspace_id = $1
   AND parent_issue_id IS NOT NULL
-  AND NOT EXISTS (SELECT 1 FROM project pa WHERE pa.id = issue.project_id
+  AND ($3::boolean OR NOT EXISTS (SELECT 1 FROM project pa WHERE pa.id = issue.project_id
     AND pa.workspace_id = issue.workspace_id AND pa.access_restricted
-    AND pa.created_by IS DISTINCT FROM $3::uuid
-    AND NOT ($3::uuid = ANY(pa.allowed_user_ids)))
+    AND pa.created_by IS DISTINCT FROM $4::uuid
+    AND NOT ($4::uuid = ANY(pa.allowed_user_ids))))
 GROUP BY parent_issue_id
 `
 
 type ChildIssueProgressParams struct {
-	WorkspaceID        pgtype.UUID `json:"workspace_id"`
-	TerminalStatusKeys []string    `json:"terminal_status_keys"`
-	AccessUserID       pgtype.UUID `json:"access_user_id"`
+	WorkspaceID          pgtype.UUID `json:"workspace_id"`
+	TerminalStatusKeys   []string    `json:"terminal_status_keys"`
+	RuntimeProjectAccess bool        `json:"runtime_project_access"`
+	AccessUserID         pgtype.UUID `json:"access_user_id"`
 }
 
 type ChildIssueProgressRow struct {
@@ -38,7 +39,12 @@ type ChildIssueProgressRow struct {
 }
 
 func (q *Queries) ChildIssueProgress(ctx context.Context, arg ChildIssueProgressParams) ([]ChildIssueProgressRow, error) {
-	rows, err := q.db.Query(ctx, childIssueProgress, arg.WorkspaceID, arg.TerminalStatusKeys, arg.AccessUserID)
+	rows, err := q.db.Query(ctx, childIssueProgress,
+		arg.WorkspaceID,
+		arg.TerminalStatusKeys,
+		arg.RuntimeProjectAccess,
+		arg.AccessUserID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1170,17 +1176,18 @@ const listChildrenByParents = `-- name: ListChildrenByParents :many
 SELECT issue.id, issue.workspace_id, issue.title, issue.description, issue.status, issue.priority, issue.assignee_type, issue.assignee_id, issue.creator_type, issue.creator_id, issue.parent_issue_id, issue.acceptance_criteria, issue.context_refs, issue.position, issue.due_date, issue.created_at, issue.updated_at, issue.number, issue.project_id, issue.origin_type, issue.origin_id, issue.first_executed_at, issue.start_date, issue.metadata, issue.stage, issue.properties, issue.revision, issue.last_activity_at, issue.triage_state, issue.duplicate_of_issue_id FROM issue
 WHERE issue.workspace_id = $1
   AND parent_issue_id = ANY($2::uuid[])
-  AND NOT EXISTS (SELECT 1 FROM project pa WHERE pa.id = issue.project_id
+  AND ($3::boolean OR NOT EXISTS (SELECT 1 FROM project pa WHERE pa.id = issue.project_id
     AND pa.workspace_id = issue.workspace_id AND pa.access_restricted
-    AND pa.created_by IS DISTINCT FROM $3::uuid
-    AND NOT ($3::uuid = ANY(pa.allowed_user_ids)))
+    AND pa.created_by IS DISTINCT FROM $4::uuid
+    AND NOT ($4::uuid = ANY(pa.allowed_user_ids))))
 ORDER BY parent_issue_id, number ASC
 `
 
 type ListChildrenByParentsParams struct {
-	WorkspaceID  pgtype.UUID   `json:"workspace_id"`
-	ParentIds    []pgtype.UUID `json:"parent_ids"`
-	AccessUserID pgtype.UUID   `json:"access_user_id"`
+	WorkspaceID          pgtype.UUID   `json:"workspace_id"`
+	ParentIds            []pgtype.UUID `json:"parent_ids"`
+	RuntimeProjectAccess bool          `json:"runtime_project_access"`
+	AccessUserID         pgtype.UUID   `json:"access_user_id"`
 }
 
 // Batched variant of ListChildIssues: returns all children for the given
@@ -1191,7 +1198,12 @@ type ListChildrenByParentsParams struct {
 // Within each parent, order by number ASC for the same sibling-stable
 // creation order as ListChildIssues.
 func (q *Queries) ListChildrenByParents(ctx context.Context, arg ListChildrenByParentsParams) ([]Issue, error) {
-	rows, err := q.db.Query(ctx, listChildrenByParents, arg.WorkspaceID, arg.ParentIds, arg.AccessUserID)
+	rows, err := q.db.Query(ctx, listChildrenByParents,
+		arg.WorkspaceID,
+		arg.ParentIds,
+		arg.RuntimeProjectAccess,
+		arg.AccessUserID,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1560,18 +1572,18 @@ SELECT i.id, i.workspace_id, i.title, i.description, i.status, i.priority,
        i.revision, i.duplicate_of_issue_id
 FROM issue i
 WHERE i.workspace_id = $1
-  AND NOT EXISTS (SELECT 1 FROM project pa WHERE pa.id = i.project_id
+  AND ($2::boolean OR NOT EXISTS (SELECT 1 FROM project pa WHERE pa.id = i.project_id
     AND pa.workspace_id = i.workspace_id AND pa.access_restricted
-    AND pa.created_by IS DISTINCT FROM $2::uuid
-    AND NOT ($2::uuid = ANY(pa.allowed_user_ids)))
+    AND pa.created_by IS DISTINCT FROM $3::uuid
+    AND NOT ($3::uuid = ANY(pa.allowed_user_ids))))
   -- Negate only known terminal keys so an unknown legacy key remains visible.
-  AND NOT (i.status = ANY($3::text[]))
-  AND ($4::text IS NULL OR i.priority = $4)
-  AND ($5::uuid IS NULL OR i.assignee_id = $5)
-  AND ($6::uuid[] IS NULL OR i.assignee_id = ANY($6::uuid[]))
-  AND ($7::uuid IS NULL OR i.creator_id = $7)
-  AND ($8::uuid IS NULL OR i.project_id = $8)
-  AND ($9::jsonb IS NULL OR i.metadata @> $9::jsonb)
+  AND NOT (i.status = ANY($4::text[]))
+  AND ($5::text IS NULL OR i.priority = $5)
+  AND ($6::uuid IS NULL OR i.assignee_id = $6)
+  AND ($7::uuid[] IS NULL OR i.assignee_id = ANY($7::uuid[]))
+  AND ($8::uuid IS NULL OR i.creator_id = $8)
+  AND ($9::uuid IS NULL OR i.project_id = $9)
+  AND ($10::jsonb IS NULL OR i.metadata @> $10::jsonb)
   -- properties_filter is a jsonb array of groups, each group an array of
   -- patterns (built by parsePropertiesFilterParam): the issue must match at
   -- least one pattern from EVERY group (AND of ORs). Three pattern shapes:
@@ -1589,10 +1601,10 @@ WHERE i.workspace_id = $1
   -- terminal-status predicate intentionally remains a filter rather than a
   -- positive index narrowing so unknown legacy status keys stay visible.
   AND (
-    $10::jsonb IS NULL
+    $11::jsonb IS NULL
     OR NOT EXISTS (
       SELECT 1
-      FROM jsonb_array_elements($10::jsonb) AS pf(alternatives)
+      FROM jsonb_array_elements($11::jsonb) AS pf(alternatives)
       WHERE NOT EXISTS (
         SELECT 1
         FROM jsonb_array_elements(pf.alternatives) AS alt(pattern)
@@ -1630,11 +1642,11 @@ WHERE i.workspace_id = $1
     )
   )
   AND (
-    $11::uuid IS NULL
+    $12::uuid IS NULL
     OR (i.assignee_type = 'agent' AND i.assignee_id IN (
           SELECT a.id FROM agent a
            WHERE a.workspace_id = $1
-             AND a.owner_id     = $11::uuid
+             AND a.owner_id     = $12::uuid
     ))
     OR (i.assignee_type = 'squad' AND i.assignee_id IN (
           SELECT sm.squad_id
@@ -1642,14 +1654,14 @@ WHERE i.workspace_id = $1
             JOIN squad s ON s.id = sm.squad_id
            WHERE s.workspace_id = $1
              AND sm.member_type = 'member'
-             AND sm.member_id   = $11::uuid
+             AND sm.member_id   = $12::uuid
           UNION
           SELECT s.id
             FROM squad s
             JOIN agent a ON a.id = s.leader_id
            WHERE s.workspace_id = $1
              AND a.workspace_id = $1
-             AND a.owner_id     = $11::uuid
+             AND a.owner_id     = $12::uuid
           UNION
           SELECT sm.squad_id
             FROM squad_member sm
@@ -1658,24 +1670,25 @@ WHERE i.workspace_id = $1
            WHERE s.workspace_id = $1
              AND sm.member_type = 'agent'
              AND a.workspace_id = $1
-             AND a.owner_id     = $11::uuid
+             AND a.owner_id     = $12::uuid
     ))
   )
 ORDER BY i.position ASC, i.created_at DESC
 `
 
 type ListOpenIssuesParams struct {
-	WorkspaceID        pgtype.UUID   `json:"workspace_id"`
-	AccessUserID       pgtype.UUID   `json:"access_user_id"`
-	TerminalStatusKeys []string      `json:"terminal_status_keys"`
-	Priority           pgtype.Text   `json:"priority"`
-	AssigneeID         pgtype.UUID   `json:"assignee_id"`
-	AssigneeIds        []pgtype.UUID `json:"assignee_ids"`
-	CreatorID          pgtype.UUID   `json:"creator_id"`
-	ProjectID          pgtype.UUID   `json:"project_id"`
-	MetadataFilter     []byte        `json:"metadata_filter"`
-	PropertiesFilter   []byte        `json:"properties_filter"`
-	InvolvesUserID     pgtype.UUID   `json:"involves_user_id"`
+	WorkspaceID          pgtype.UUID   `json:"workspace_id"`
+	RuntimeProjectAccess bool          `json:"runtime_project_access"`
+	AccessUserID         pgtype.UUID   `json:"access_user_id"`
+	TerminalStatusKeys   []string      `json:"terminal_status_keys"`
+	Priority             pgtype.Text   `json:"priority"`
+	AssigneeID           pgtype.UUID   `json:"assignee_id"`
+	AssigneeIds          []pgtype.UUID `json:"assignee_ids"`
+	CreatorID            pgtype.UUID   `json:"creator_id"`
+	ProjectID            pgtype.UUID   `json:"project_id"`
+	MetadataFilter       []byte        `json:"metadata_filter"`
+	PropertiesFilter     []byte        `json:"properties_filter"`
+	InvolvesUserID       pgtype.UUID   `json:"involves_user_id"`
 }
 
 type ListOpenIssuesRow struct {
@@ -1710,6 +1723,7 @@ type ListOpenIssuesRow struct {
 func (q *Queries) ListOpenIssues(ctx context.Context, arg ListOpenIssuesParams) ([]ListOpenIssuesRow, error) {
 	rows, err := q.db.Query(ctx, listOpenIssues,
 		arg.WorkspaceID,
+		arg.RuntimeProjectAccess,
 		arg.AccessUserID,
 		arg.TerminalStatusKeys,
 		arg.Priority,

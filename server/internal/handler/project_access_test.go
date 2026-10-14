@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -40,6 +41,43 @@ func TestProjectAccessLifecycle(t *testing.T) {
 	testutil.Call(t, testHandler.CreatePin, newRequestAs(member, "POST", "/api/pins", map[string]any{"item_type": "issue", "item_id": issueID})).Want(http.StatusCreated)
 	setAccess(testUserID, true, []string{}, 200)
 	get(member, http.StatusNotFound)
+	// A validated task token acts for the runtime in its bound workspace, not
+	// for its owner's project grants. Member sessions remain restricted.
+	runtimeRequest := func(method, path string, body any) *http.Request {
+		t.Helper()
+		req := newRequestAs(member, method, path, body)
+		req.Header.Set("X-Actor-Source", "task_token")
+		return req
+	}
+	runtimeProject := testutil.Call(t, testHandler.GetProject, withURLParam(runtimeRequest("GET", "/api/projects/"+project.ID, nil), "id", project.ID)).Want(http.StatusOK)
+	var runtimeProjectResponse ProjectResponse
+	runtimeProject.JSON(&runtimeProjectResponse)
+	if !runtimeProjectResponse.AccessAllowed || runtimeProjectResponse.CanManageAccess {
+		t.Fatal("runtime must read restricted project without gaining access management")
+	}
+	testutil.Call(t, testHandler.GetIssue, withURLParam(runtimeRequest("GET", "/api/issues/"+issueID, nil), "id", issueID)).Want(http.StatusOK)
+	runtimeIssues := testutil.Call(t, testHandler.ListIssues, runtimeRequest("GET", "/api/issues?open_only=true", nil)).Want(http.StatusOK)
+	if !strings.Contains(runtimeIssues.Body.String(), issueID) {
+		t.Fatal("runtime issue list omitted its restricted issue")
+	}
+	runtimeProjects := testutil.Call(t, testHandler.ListProjects, runtimeRequest("GET", "/api/projects", nil)).Want(http.StatusOK)
+	if !strings.Contains(runtimeProjects.Body.String(), project.ID) {
+		t.Fatal("runtime project list omitted the restricted project")
+	}
+	runtimeSearch := testutil.Call(t, testHandler.SearchIssues, runtimeRequest("GET", "/api/issues/search?q=private%20issue%20needle", nil)).Want(http.StatusOK)
+	if !strings.Contains(runtimeSearch.Body.String(), issueID) {
+		t.Fatal("runtime issue search omitted the restricted issue")
+	}
+	setAccess(member, false, nil, http.StatusNotFound)
+	testutil.Call(t, testHandler.UpdateProjectAccess, withURLParam(runtimeRequest("PUT", "/api/projects/"+project.ID+"/access", map[string]any{"access_restricted": false}), "id", project.ID)).Want(http.StatusForbidden)
+	runtimeID := dbfx.Runtime(t, "restricted project runtime")
+	agentID := dbfx.Agent(t, "restricted project agent", runtimeID)
+	taskID := dbfx.Task(t, agentID, testutil.Cols{"runtime_id": runtimeID, "issue_id": issueID})
+	daemonResponse := httptest.NewRecorder()
+	_, _, daemonAllowed := testHandler.requireDaemonTaskAccessWithWorkspace(daemonResponse, newRequestAs(member, "GET", "/api/daemon/tasks/"+taskID, nil), taskID)
+	if !daemonAllowed {
+		t.Fatalf("runtime owner must access its workspace task despite project grants: %d %s", daemonResponse.Code, daemonResponse.Body.String())
+	}
 	listResult := testutil.Call(t, testHandler.ListProjects, newRequestAs(member, "GET", "/api/projects", nil)).Want(http.StatusOK)
 	if strings.Contains(listResult.Body.String(), project.ID) || strings.Contains(listResult.Body.String(), project.Title) {
 		t.Fatal("restricted project remained discoverable in the project list")
