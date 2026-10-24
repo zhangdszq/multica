@@ -112,13 +112,20 @@ func TestProjectAccessLifecycle(t *testing.T) {
 	}
 	setAccess(member, false, nil, http.StatusNotFound)
 	testutil.Call(t, testHandler.UpdateProjectAccess, withURLParam(runtimeRequest("PUT", "/api/projects/"+project.ID+"/access", map[string]any{"access_restricted": false}), "id", project.ID)).Want(http.StatusForbidden)
-	runtimeID := dbfx.Runtime(t, "restricted project runtime")
-	agentID := dbfx.Agent(t, "restricted project agent", runtimeID)
+	runtimeID := dbfx.Runtime(t, "restricted project runtime", testutil.Cols{"owner_id": member})
+	agentID := dbfx.Agent(t, "restricted project agent", runtimeID, testutil.Cols{"owner_id": member})
 	taskID := dbfx.Task(t, agentID, testutil.Cols{"runtime_id": runtimeID, "issue_id": issueID})
 	daemonResponse := httptest.NewRecorder()
 	_, _, daemonAllowed := testHandler.requireDaemonTaskAccessWithWorkspace(daemonResponse, newRequestAs(member, "GET", "/api/daemon/tasks/"+taskID, nil), taskID)
 	if !daemonAllowed {
 		t.Fatalf("runtime owner must access its workspace task despite project grants: %d %s", daemonResponse.Code, daemonResponse.Body.String())
+	}
+	for _, nonOwner := range []string{testUserID, admin} {
+		denied := httptest.NewRecorder()
+		_, _, allowed := testHandler.requireDaemonTaskAccessWithWorkspace(denied, newRequestAs(nonOwner, "GET", "/api/daemon/tasks/"+taskID, nil), taskID)
+		if allowed || denied.Code != http.StatusNotFound {
+			t.Fatalf("non-owner must not access another runtime's task: %d %s", denied.Code, denied.Body.String())
+		}
 	}
 	listResult := testutil.Call(t, testHandler.ListProjects, newRequestAs(member, "GET", "/api/projects", nil)).Want(http.StatusOK)
 	if strings.Contains(listResult.Body.String(), project.ID) || strings.Contains(listResult.Body.String(), project.Title) {
