@@ -5,11 +5,53 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
 	"github.com/multica-ai/multica/server/internal/testutil"
+	db "github.com/multica-ai/multica/server/pkg/db/generated"
 )
+
+func TestProjectWorkflowAccessRespectsRestrictedProjects(t *testing.T) {
+	project := createProjectPermissionTestProject(t, "Restricted workflow project")
+	member := createProjectPermissionTestMember(t, "member")
+	admin := createProjectPermissionTestMember(t, "admin")
+	request := withURLParam(newRequestAs(testUserID, "PUT", "/api/projects/"+project.ID+"/access", map[string]any{
+		"access_restricted": true,
+		"allowed_user_ids":  []string{},
+	}), "id", project.ID)
+	testutil.Call(t, testHandler.UpdateProjectAccess, request).Want(http.StatusOK)
+
+	workflows := []db.IssueWorkflow{{ID: parseUUID(testWorkspaceID), IsDefault: true}}
+	for _, tc := range []struct {
+		name, user       string
+		runtime, visible bool
+	}{
+		{name: "creator", user: testUserID, visible: true},
+		{name: "ungranted member", user: member},
+		{name: "ungranted admin", user: admin},
+		{name: "task runtime", user: member, runtime: true, visible: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := newRequestAs(tc.user, "GET", "/api/issue-workflows", nil)
+			if tc.runtime {
+				req.Header.Set("X-Actor-Source", "task_token")
+			}
+			ids, err := testHandler.projectIDsByWorkflow(req, parseUUID(testWorkspaceID), workflows)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := slices.Contains(ids[testWorkspaceID], project.ID); got != tc.visible {
+				t.Fatalf("restricted project visible = %v, want %v", got, tc.visible)
+			}
+		})
+	}
+	for _, user := range []string{member, admin} {
+		req := withURLParam(newRequestAs(user, "POST", "/api/projects/"+project.ID+"/workflow", map[string]any{"workflow_id": nil}), "id", project.ID)
+		testutil.Call(t, testHandler.SetProjectWorkflow, req).Want(http.StatusNotFound)
+	}
+}
 
 func TestProjectAccessLifecycle(t *testing.T) {
 	project := createProjectPermissionTestProject(t, "ACL protected project")
