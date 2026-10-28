@@ -180,5 +180,18 @@
     "direction_desc": "降序",
     "section_columns": "列",
     "view": "檢視"
+  },
+  "access": {
+    "title": "專案存取權限",
+    "restricted": "僅限指定成員",
+    "creator_hint": "建立者始終有權限。儲存後變更才會生效。",
+    "search": "搜尋成員",
+    "creator": "建立者",
+    "save": "儲存權限",
+    "saved": "權限已更新",
+    "failed": "無法儲存權限，請重試。",
+    "denied_title": "需要存取權限",
+    "denied_message": "請聯絡 {{name}} 授權存取此專案。",
+    "back": "返回專案列表"
   }
 }

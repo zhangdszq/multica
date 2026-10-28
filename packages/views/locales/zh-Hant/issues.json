@@ -867,7 +867,12 @@
     "remove_parent_issue_success": "已移除父任務",
     "add_sub_issue": "新增子任務...",
     "delete_issue": "刪除任務",
-    "mark_duplicate": "標記為重複..."
+    "mark_duplicate": "標記為重複...",
+    "image_layout": "圖片佈局",
+    "image_layout_auto": "自動",
+    "image_layout_one_column": "單欄",
+    "image_layout_two_columns": "雙欄",
+    "image_layout_three_columns": "三欄"
   },
   "pickers": {
     "custom_property": {

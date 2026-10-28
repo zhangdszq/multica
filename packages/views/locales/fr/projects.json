@@ -182,5 +182,18 @@
     "direction_desc": "Décroissant",
     "section_columns": "Colonnes",
     "view": "Vue"
+  },
+  "access": {
+    "title": "Accès au projet",
+    "restricted": "Membres sélectionnés uniquement",
+    "creator_hint": "Le créateur conserve toujours son accès. Les modifications prennent effet après enregistrement.",
+    "search": "Rechercher des membres",
+    "creator": "Créateur",
+    "save": "Enregistrer les accès",
+    "saved": "Accès mis à jour",
+    "failed": "Impossible d’enregistrer les accès. Réessayez.",
+    "denied_title": "Accès requis",
+    "denied_message": "Demandez à {{name}} de vous autoriser à accéder à ce projet.",
+    "back": "Retour aux projets"
   }
 }

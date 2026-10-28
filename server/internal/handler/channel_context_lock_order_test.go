@@ -27,6 +27,8 @@ type contextLockTestStarter struct {
 	release       chan struct{}
 	observeBefore string
 	observed      chan struct{}
+	pauseOnce     sync.Once
+	observeOnce   sync.Once
 }
 
 func (s *contextLockTestStarter) Begin(ctx context.Context) (pgx.Tx, error) {
@@ -44,12 +46,12 @@ type contextLockTestTx struct {
 
 func (tx *contextLockTestTx) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
 	if tx.starter.observeBefore != "" && strings.Contains(query, tx.starter.observeBefore) {
-		close(tx.starter.observed)
+		tx.starter.observeOnce.Do(func() { close(tx.starter.observed) })
 	}
 	row := tx.Tx.QueryRow(ctx, query, args...)
 	switch {
 	case tx.starter.pauseAfter != "" && strings.Contains(query, tx.starter.pauseAfter):
-		return &contextLockPauseRow{Row: row, paused: tx.starter.paused, release: tx.starter.release}
+		return &contextLockPauseRow{Row: row, paused: tx.starter.paused, release: tx.starter.release, once: &tx.starter.pauseOnce}
 	default:
 		return row
 	}
@@ -59,14 +61,17 @@ type contextLockPauseRow struct {
 	pgx.Row
 	paused  chan struct{}
 	release chan struct{}
+	once    *sync.Once
 }
 
 func (row *contextLockPauseRow) Scan(dest ...any) error {
 	if err := row.Row.Scan(dest...); err != nil {
 		return err
 	}
-	close(row.paused)
-	<-row.release
+	row.once.Do(func() {
+		close(row.paused)
+		<-row.release
+	})
 	return nil
 }
 
