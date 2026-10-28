@@ -164,6 +164,7 @@ var concurrentIndexCleanups = map[string]string{
 	"579_issue_workflow_workspace_name_index":          "idx_issue_workflow_workspace_name",
 	"585_issue_workflow_default_index":                 "idx_issue_workflow_workspace_default",
 
+	"597_agent_task_process_cleanup_index":                      "idx_agent_task_queue_process_cleanup",
 	"510_wakeup_id":                                             "issue_wakeup_id_idx",
 	"511_wakeup_issue":                                          "issue_wakeup_issue_idx",
 	"512_wakeup_due":                                            "issue_wakeup_due_idx",
