@@ -21,6 +21,7 @@ import (
 type resourceReadPauseDB struct {
 	db.DBTX
 	paused, release chan struct{}
+	once            *sync.Once
 }
 
 func (d resourceReadPauseDB) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
@@ -28,7 +29,7 @@ func (d resourceReadPauseDB) QueryRow(ctx context.Context, query string, args ..
 	// Prefix (not equality): matches both the plain read and the
 	// FOR UPDATE variant added by the fix, whichever the handler uses.
 	if strings.HasPrefix(query, "-- name: GetProjectResourceInWorkspace") {
-		return &contextLockPauseRow{Row: row, paused: d.paused, release: d.release, once: new(sync.Once)}
+		return &contextLockPauseRow{Row: row, paused: d.paused, release: d.release, once: d.once}
 	}
 	return row
 }
@@ -40,7 +41,7 @@ func (d resourceReadPauseDB) QueryRow(ctx context.Context, query string, args ..
 // contextLockTestStarter cover both shapes.
 func pausedUpdateHandler(paused, release chan struct{}) *Handler {
 	h := *testHandler
-	h.Queries = db.New(resourceReadPauseDB{DBTX: testPool, paused: paused, release: release})
+	h.Queries = db.New(resourceReadPauseDB{DBTX: testPool, paused: paused, release: release, once: new(sync.Once)})
 	h.TxStarter = &contextLockTestStarter{
 		pool: testPool, pauseAfter: "GetProjectResourceInWorkspaceForUpdate",
 		paused: paused, release: release,
