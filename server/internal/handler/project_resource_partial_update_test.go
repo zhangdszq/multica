@@ -28,7 +28,7 @@ func (d resourceReadPauseDB) QueryRow(ctx context.Context, query string, args ..
 	// Prefix (not equality): matches both the plain read and the
 	// FOR UPDATE variant added by the fix, whichever the handler uses.
 	if strings.HasPrefix(query, "-- name: GetProjectResourceInWorkspace") {
-		return &contextLockPauseRow{Row: row, paused: d.paused, release: d.release}
+		return &contextLockPauseRow{Row: row, paused: d.paused, release: d.release, once: new(sync.Once)}
 	}
 	return row
 }

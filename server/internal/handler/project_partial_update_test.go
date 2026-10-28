@@ -23,7 +23,7 @@ type projectReadPauseDB struct {
 func (d projectReadPauseDB) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
 	row := d.DBTX.QueryRow(ctx, query, args...)
 	if strings.HasPrefix(query, "-- name: GetProjectInWorkspace :one") {
-		return &contextLockPauseRow{Row: row, paused: d.paused, release: d.release}
+		return &contextLockPauseRow{Row: row, paused: d.paused, release: d.release, once: new(sync.Once)}
 	}
 	return row
 }
