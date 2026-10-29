@@ -142,7 +142,7 @@ import {
   IssueActionsContextMenu,
   IssueContextMenuProvider,
 } from "../issue-actions-context-menu";
-import { useIssueImageLayoutStore } from "@multica/core/issues/stores";
+import { useIssueImageLayoutStore, useIssueBodyWidthStore } from "@multica/core/issues/stores";
 
 const listTasksByIssueMock = apiMocks.listTasksByIssue;
 
@@ -189,6 +189,7 @@ beforeEach(() => {
   listTasksByIssueMock.mockReset();
   listTasksByIssueMock.mockResolvedValue([]);
   useIssueImageLayoutStore.setState({ columns: "auto" });
+  useIssueBodyWidthStore.setState({ width: "normal" });
   apiMocks.listIssueWorkflows.mockReset();
   apiMocks.listIssueWorkflows.mockResolvedValue({ workflows: [] });
   apiMocks.listProjects.mockReset();
@@ -196,6 +197,21 @@ beforeEach(() => {
 });
 
 describe("IssueActionsDropdown", () => {
+  it("defaults to normal body width and switches the personal preference", async () => {
+    render(wrap(<IssueActionsDropdown issue={mockIssue} trigger={<button>Menu</button>} />));
+    fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+    fireEvent.click(await screen.findByText("Body width"));
+    expect(await screen.findByRole("menuitemradio", { name: "Normal" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Wide" }));
+    await waitFor(() => expect(useIssueBodyWidthStore.getState().width).toBe("wide"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Menu" }));
+    fireEvent.click(await screen.findByText("Body width"));
+    expect(await screen.findByRole("menuitemradio", { name: "Wide" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("menuitemradio", { name: "Narrow" }));
+    await waitFor(() => expect(useIssueBodyWidthStore.getState().width).toBe("narrow"));
+  });
+
   it("renders the top-level items when the trigger is clicked", async () => {
     render(
       wrap(

@@ -400,6 +400,9 @@ vi.mock("@multica/core/issues/stores", async () => ({
   ),
   selectRecentIssues: () => () => [],
   ISSUE_IMAGE_COLUMN_OPTIONS: ["auto", "1", "2", "3"],
+  ...(await vi.importActual<
+    typeof import("@multica/core/issues/stores/body-width-store")
+  >("@multica/core/issues/stores/body-width-store")),
   isIssueImageColumns: (value: unknown) => ["auto", "1", "2", "3"].includes(String(value)),
   useIssueImageLayoutStore: (selector?: any) => {
     const state = { columns: "auto", setColumns: vi.fn() };

@@ -149,6 +149,8 @@ import {
   useResolvedExpandStore,
   useSubIssuesCollapseStore,
   useSubIssueDisplayStore,
+  useIssueBodyWidthStore,
+  type IssueBodyWidth,
   SUB_ISSUE_ROW_PROPERTY_KEYS,
   type SubIssueRowProperties,
   type SubIssueRowPropertyKey,
@@ -210,6 +212,12 @@ export function issueHighlightMementoKey(issueId: string): string {
 // what a click does.
 const SUBSCRIPTION_ACTION_CLASS =
   "text-caption text-muted-foreground hover:text-foreground transition-colors disabled:pointer-events-none disabled:opacity-50";
+
+const BODY_WIDTH_CLASSES: Record<IssueBodyWidth, string> = {
+  narrow: "max-w-2xl",
+  normal: "max-w-4xl",
+  wide: "max-w-none",
+};
 
 function SubscriberPopoverContent({
   members,
@@ -1232,6 +1240,7 @@ export function IssueDetailSkeleton({
   trailing,
   sidebar = true,
 }: { leading?: ReactNode; trailing?: ReactNode; sidebar?: boolean } = {}) {
+  const bodyWidth = useIssueBodyWidthStore((state) => state.width);
   return (
     <div className="flex flex-1 min-h-0 flex-col">
       {/* The way back is real from the first frame, not once the issue lands:
@@ -1253,7 +1262,7 @@ export function IssueDetailSkeleton({
         <div className="flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]">
           {/* Gutters match the loaded column exactly (see its comment), so the
               skeleton doesn't reflow sideways when real content mounts. */}
-          <div className="mx-auto w-full max-w-4xl px-3 py-6 space-y-6 md:px-8 md:py-8">
+          <div className={cn("mx-auto w-full px-3 py-6 space-y-6 md:px-8 md:py-8", BODY_WIDTH_CLASSES[bodyWidth])}>
             <Skeleton className="h-8 w-3/4" />
             <div className="space-y-2">
               <Skeleton className="h-4 w-full" />
@@ -1299,6 +1308,7 @@ export function IssueDetailSkeleton({
 
 export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = true, layoutId = "multica_issue_detail_layout", highlightCommentId, highlightRequestToken, leadingAction, variant = "page", trailingActions }: IssueDetailProps) {
   const isPeek = variant === "peek";
+  const bodyWidth = useIssueBodyWidthStore((state) => state.width);
   const { t } = useT("issues");
   const { t: tCommon } = useT("common");
   const locale = useLocale();
@@ -3302,11 +3312,12 @@ export function IssueDetail({ issueId, onDelete, onDone, defaultSidebarOpen = tr
             `useStickyComposer`), so it lands here — right where the launcher
             floats — once the reader scrolls to the bottom. */}
         <div
+          data-issue-body-width={bodyWidth}
           className={cn(
             "mx-auto w-full",
             // The peek is already a narrow column, so it takes a tighter gutter
             // and never reaches the chat launcher's corner (see IssuePeekHost).
-            isPeek ? "px-6 py-5" : "max-w-4xl px-3 py-6 max-md:pb-chat-launcher md:px-8 md:py-8",
+            isPeek ? "px-6 py-5" : cn(BODY_WIDTH_CLASSES[bodyWidth], "px-3 py-6 max-md:pb-chat-launcher md:px-8 md:py-8"),
           )}
         >
           <IssueDuplicateBanner

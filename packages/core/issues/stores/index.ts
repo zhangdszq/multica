@@ -69,6 +69,12 @@ export {
 } from "./surface-view-store";
 export { useSubIssuesCollapseStore } from "./sub-issues-collapse-store";
 export {
+  ISSUE_BODY_WIDTH_OPTIONS,
+  isIssueBodyWidth,
+  useIssueBodyWidthStore,
+  type IssueBodyWidth,
+} from "./body-width-store";
+export {
   ISSUE_IMAGE_COLUMN_OPTIONS,
   isIssueImageColumns,
   useIssueImageLayoutStore,

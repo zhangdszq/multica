@@ -12,8 +12,11 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@multica/ui/components/ui/dropdown-menu";
-import { Images } from "lucide-react";
+import { Images, MoveHorizontal } from "lucide-react";
 import {
+  ISSUE_BODY_WIDTH_OPTIONS,
+  isIssueBodyWidth,
+  useIssueBodyWidthStore,
   ISSUE_IMAGE_COLUMN_OPTIONS,
   isIssueImageColumns,
   useIssueImageLayoutStore,
@@ -45,6 +48,13 @@ export function IssueActionsDropdown({
   const { t } = useT("issues");
   const actions = useIssueActions(issue);
   const [assigneeOpen, setAssigneeOpen] = useState(false);
+  const bodyWidth = useIssueBodyWidthStore((state) => state.width);
+  const setBodyWidth = useIssueBodyWidthStore((state) => state.setWidth);
+  const bodyWidthLabels = {
+    narrow: t(($) => $.actions.body_width_narrow),
+    normal: t(($) => $.actions.body_width_normal),
+    wide: t(($) => $.actions.body_width_wide),
+  };
   const imageColumns = useIssueImageLayoutStore((state) => state.columns);
   const setImageColumns = useIssueImageLayoutStore((state) => state.setColumns);
   const imageColumnLabels = {
@@ -62,6 +72,26 @@ export function IssueActionsDropdown({
       <DropdownMenu>
         <DropdownMenuTrigger render={trigger} />
         <DropdownMenuContent align={align} className="w-auto">
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <MoveHorizontal className="h-3.5 w-3.5" />
+              {t(($) => $.actions.body_width)}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuRadioGroup
+                value={bodyWidth}
+                onValueChange={(value) => {
+                  if (isIssueBodyWidth(value)) setBodyWidth(value);
+                }}
+              >
+                {ISSUE_BODY_WIDTH_OPTIONS.map((width) => (
+                  <DropdownMenuRadioItem key={width} value={width}>
+                    {bodyWidthLabels[width]}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>
               <Images className="h-3.5 w-3.5" />
