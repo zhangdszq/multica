@@ -12,7 +12,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@multica/ui/components/ui/dropdown-menu";
-import { Images, MoveHorizontal } from "lucide-react";
+import { ImageIcon as Images, ArrowLeftRight as MoveHorizontal } from "@multica/ui/icons";
 import {
   ISSUE_BODY_WIDTH_OPTIONS,
   isIssueBodyWidth,
@@ -26,7 +26,6 @@ import {
   IssueActionsMenuItems,
   dropdownPrimitives,
 } from "./issue-actions-menu-items";
-import { AssigneePicker } from "../components/pickers";
 import { useT } from "../../i18n";
 
 interface IssueActionsDropdownProps {
@@ -47,7 +46,7 @@ export function IssueActionsDropdown({
 }: IssueActionsDropdownProps) {
   const { t } = useT("issues");
   const actions = useIssueActions(issue);
-  const [assigneeOpen, setAssigneeOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const bodyWidth = useIssueBodyWidthStore((state) => state.width);
   const setBodyWidth = useIssueBodyWidthStore((state) => state.setWidth);
   const bodyWidthLabels = {
@@ -68,8 +67,7 @@ export function IssueActionsDropdown({
   // the popover positions itself relative to the dropdown's 3-dot button
   // without us having to thread a ref through Base UI's anchor API.
   return (
-    <span className="relative inline-flex">
-      <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger render={trigger} />
         <DropdownMenuContent align={align} className="w-auto">
           <DropdownMenuSub>
@@ -118,31 +116,10 @@ export function IssueActionsDropdown({
             issue={issue}
             actions={actions}
             primitives={dropdownPrimitives}
-            onOpenAssignee={() => setAssigneeOpen(true)}
+            onClose={() => setOpen(false)}
             onDeletedFallbackPath={onDeletedFallbackPath}
           />
         </DropdownMenuContent>
-      </DropdownMenu>
-      {/* Mount the picker only once the user actually opens it. Otherwise
-          every row in a list/board would subscribe to members/agents/squads
-          /frequency queries on mount, multiplying memory + render cost. */}
-      {assigneeOpen && (
-        <AssigneePicker
-          assigneeType={issue.assignee_type}
-          assigneeId={issue.assignee_id}
-          onUpdate={actions.updateField}
-          open={assigneeOpen}
-          onOpenChange={setAssigneeOpen}
-          triggerRender={
-            <span
-              aria-hidden
-              className="pointer-events-none absolute inset-0"
-            />
-          }
-          trigger={<span />}
-          align={align}
-        />
-      )}
-    </span>
+    </DropdownMenu>
   );
 }

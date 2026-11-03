@@ -140,6 +140,7 @@ var pgBigmOperatorClass = extensionOperatorClass{
 // they are still pending: a fresh self-hosted install, which is exactly where an
 // interrupted build would otherwise leave a permanently unusable index.
 var concurrentIndexCleanups = map[string]string{
+	"604_wecom_install_session_pkey_index":             "wecom_install_session_pkey_uidx",
 	"538_github_pr_address_index":                      "idx_github_pull_request_pr_owner_repo",
 	"542_task_supplement_request_index":                "task_supplement_task_request_uidx",
 	"543_task_supplement_capability_index":             "task_supplement_capability_task_uidx",
@@ -165,6 +166,11 @@ var concurrentIndexCleanups = map[string]string{
 	"585_issue_workflow_default_index":                 "idx_issue_workflow_workspace_default",
 
 	"597_agent_task_process_cleanup_index":                      "idx_agent_task_queue_process_cleanup",
+	"611_agent_task_queue_runtime_active_index":                 "idx_agent_task_queue_runtime_active",
+	"609_wecom_install_session_begin_rate_idx":                  "idx_wecom_install_session_begin_rate",
+	"608_wecom_install_session_agent_pending_idx":               "idx_wecom_install_session_agent_pending",
+	"607_wecom_install_session_request_idx":                     "idx_wecom_install_session_request",
+	"606_wecom_install_session_due_idx":                         "idx_wecom_install_session_due",
 	"510_wakeup_id":                                             "issue_wakeup_id_idx",
 	"511_wakeup_issue":                                          "issue_wakeup_issue_idx",
 	"512_wakeup_due":                                            "issue_wakeup_due_idx",
@@ -191,6 +197,7 @@ var concurrentIndexCleanups = map[string]string{
 	"488_maintenance_job_active_index":                          "idx_maintenance_job_active",
 	"590_cloud_agent_connection_provider_index":                 "cloud_agent_connection_provider_index",
 	"593_member_delegation_day_unique_index":                    "member_delegation_day_user_date_uidx",
+	"601_issue_unread_unique_index":                             "issue_unread_workspace_user_issue_uidx",
 	"035_task_queue_issue_id_index":                             "idx_agent_task_queue_issue_id",
 	"067_task_queue_claim_candidate_index":                      "idx_agent_task_queue_claim_candidates",
 	"074_task_usage_updated_at_index":                           "idx_task_usage_updated_at",
