@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPostJSON(t *testing.T) {
@@ -279,6 +280,51 @@ func TestDownloadFile(t *testing.T) {
 			t.Fatal("expected error, got nil")
 		}
 	})
+}
+
+func TestDownloadFileSlowBody(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		clientLimit  time.Duration
+		contextLimit time.Duration
+		wantTimeout  bool
+	}{
+		{"longer download context", 100 * time.Millisecond, 3 * time.Second, false},
+		{"short context still cancels", 2 * time.Second, 100 * time.Millisecond, true},
+		{"no context deadline keeps client limit", 100 * time.Millisecond, 0, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = io.WriteString(w, "first-")
+				w.(http.Flusher).Flush()
+				select {
+				case <-time.After(300 * time.Millisecond):
+					_, _ = io.WriteString(w, "last")
+				case <-r.Context().Done():
+				}
+			}))
+			defer srv.Close()
+			client := NewAPIClient(srv.URL, "", "test-token")
+			client.HTTPClient.Timeout = tt.clientLimit
+			ctx := context.Background()
+			if tt.contextLimit > 0 {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, tt.contextLimit)
+				defer cancel()
+			}
+			data, err := client.DownloadFile(ctx, "/slow-file")
+			if tt.wantTimeout {
+				if !errors.Is(err, context.DeadlineExceeded) {
+					t.Fatalf("expected deadline exceeded, got data=%q error=%v", data, err)
+				}
+			} else if err != nil || string(data) != "first-last" {
+				t.Fatalf("download body = %q, error = %v", data, err)
+			}
+			if client.HTTPClient.Timeout != tt.clientLimit {
+				t.Fatalf("shared HTTP client timeout changed: %s", client.HTTPClient.Timeout)
+			}
+		})
+	}
 }
 
 func TestUploadFileWithURL(t *testing.T) {
