@@ -2,7 +2,7 @@
 
 ## 结论与当前状态
 
-目标版本为官方最新稳定 tag [v0.8.2](https://github.com/multica-ai/multica/releases/tag/v0.8.2)，发布于 2026-11-10，提交 `b7f8efcaae6c5f3273c0038252b5d10c81b41068`。以 fork main `dbc8450a040cc68ed38a4ed8bea9def94cdcbcff` 为基线集成；官方私有项目功能已进入本次候选代码，旧权限实现被替换。
+目标版本为官方最新稳定 tag [v0.8.2](https://github.com/multica-ai/multica/releases/tag/v0.8.2)，发布于 2026-11-10，提交 `b7f8efcaae6c5f3273c0038252b5d10c81b41068`。以 fork main `dbc8450a040cc68ed38a4ed8bea9def94cdcbcff` 为基线集成；官方私有项目功能已进入本次候选代码，旧权限实现被替换。集成代码提交 `bd742042b`，分支 `upgrade/shuz-158-v082-official-project-access`，尚未合并主分支。
 
 本批尚未上线。测试及生产仍运行 `36b2a3a`，迁移最高 `615_runtime_profile_add_zcode`。新迁移为 **616–642，共 27 项**。工作区 AGENTS.md 要求修改测试数据库表结构前获得人工审批并准备备份回滚；以往审批仅覆盖旧批次，不能替代本批审批。用户已要求迁移授权数据及测试通过后上线，生产数据写入限于此明确范围。
 
@@ -75,11 +75,12 @@
 
 ### 已执行的检查
 
-- Core、Views、Web 类型检查通过；官方项目权限 UI 定向 9 项测试通过。
+- Core、Views、Web 类型检查通过；Web standalone 生产构建通过；官方项目权限 UI 定向 9 项测试通过。
 - 官方 sqlc v1.31.1 生成通过，所用工具归档 SHA-256 与 GitHub release asset digest 一致。
 - 与 fork 基线逐文件比较的 1,279 个历史迁移/manifest 文件无字节变化。
-- Go 官方项目访问策略、迁移静态检查/manifest、CLI client 测试已通过；其余命令测试和最终构建仍需确认结果。
+- Go 官方项目访问策略、迁移静态检查/manifest、CLI client 测试已通过；原生命令测试在本机链接阶段未完成并已停止，不计为通过。后端最终发布制品仍需完成构建与验证。
 - 较大的 Vitest 运行存在 worker 启动超时，部分套件未执行任何用例；另一次 Core 运行虽有 8 项通过，仍有 worker 错误，不能算整轮通过。未修改测试断言或依赖源码来掩盖这些失败。
+- 本机磁盘检查剩余约 4 GiB、使用率 99%；已按错误原文核对 Vitest 的 worker 启动限制与相关源码，并尝试限制并发、线程模式和单文件运行。成功与未完成范围按上面分别列出，不以环境问题为由省略后续发布验收。
 - 新 SQL 数据迁移测试、隔离库迁移演练、完整数据库权限回归及部署后浏览器验收尚未执行，须在本批 schema 审批后完成。
 
 ## 备份与回滚
