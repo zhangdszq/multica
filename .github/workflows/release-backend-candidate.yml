@@ -1,0 +1,51 @@
+name: Release backend candidate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/release-backend-candidate.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "~1.27.3"
+          cache-dependency-path: server/go.sum
+      - name: Build static Linux executables and rehearsal tests
+        working-directory: server
+        env:
+          CGO_ENABLED: "0"
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          set -eu
+          revision=$(git rev-parse HEAD)
+          mkdir -p ../backend-candidate/out
+          go build -p=2 -trimpath -ldflags "-s -w -X main.version=0.8.2 -X main.commit=$revision" -o ../backend-candidate/out/server ./cmd/server
+          go build -p=2 -trimpath -ldflags '-s -w' -o ../backend-candidate/out/migrate ./cmd/migrate
+          go test -p=2 -c -o ../backend-candidate/out/handler.test ./internal/handler
+          go test -p=2 -c -o ../backend-candidate/out/migrate.test ./cmd/migrate
+          printf '%s\n' "$revision" > ../backend-candidate/revision
+          go version > ../backend-candidate/toolchain
+      - name: Package with checksums
+        run: |
+          set -eu
+          git archive --format=tar --output=backend-candidate/source.tar HEAD
+          (cd backend-candidate && sha256sum out/* source.tar > SHA256SUMS)
+          tar -czf backend-candidate.tar.gz -C backend-candidate .
+      - uses: actions/upload-artifact@v6
+        with:
+          name: backend-candidate-${{ github.event.pull_request.head.sha || github.sha }}
+          path: backend-candidate.tar.gz
+          retention-days: 3
+          if-no-files-found: error
