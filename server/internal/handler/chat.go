@@ -90,6 +90,9 @@ func (h *Handler) CreateChatSession(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "you do not have access to this agent")
 		return
 	}
+	if !h.requireChatProjectVisible(w, r, workspaceID, projectID, agent.ID) {
+		return
+	}
 
 	// Create inside a tx that first takes a FOR KEY SHARE lock on the workspace
 	// row: it conflicts with DeleteWorkspace's FOR UPDATE, so a session cannot be
@@ -113,9 +116,6 @@ func (h *Handler) CreateChatSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if projectID.Valid {
-		if !h.requireProjectAccess(w, r, projectID) {
-			return
-		}
 		if _, err := qtx.LockProjectForChatSessionCreate(r.Context(), db.LockProjectForChatSessionCreateParams{
 			ID:          projectID,
 			WorkspaceID: workspaceUUID,
@@ -416,6 +416,9 @@ func (h *Handler) UpdateChatSession(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
+			if !h.requireChatProjectVisible(w, r, workspaceID, projectID, session.AgentID) {
+				return
+			}
 		}
 
 		tx, txErr := h.TxStarter.Begin(r.Context())
@@ -427,9 +430,6 @@ func (h *Handler) UpdateChatSession(w http.ResponseWriter, r *http.Request) {
 		qtx := h.Queries.WithTx(tx)
 
 		if projectID.Valid {
-			if !h.requireProjectAccess(w, r, projectID) {
-				return
-			}
 			if _, lockErr := qtx.LockProjectForChatSessionCreate(r.Context(), db.LockProjectForChatSessionCreateParams{
 				ID:          projectID,
 				WorkspaceID: session.WorkspaceID,

@@ -529,7 +529,7 @@ func (h *Handler) loadProjectForResource(w http.ResponseWriter, r *http.Request,
 		writeError(w, http.StatusNotFound, "project not found")
 		return db.Project{}, false
 	}
-	if !h.requireProjectAccess(w, r, project.ID) {
+	if !h.requireProjectVisible(w, r, uuidToString(wsUUID), project.ID, http.StatusNotFound, "project not found") {
 		return db.Project{}, false
 	}
 	return project, true

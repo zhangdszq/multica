@@ -5,14 +5,13 @@
     "scope_all": "Tous les projets",
     "scope_active": "Projets actifs",
     "scope_closed": "Projets clos",
-    "empty": "Aucun projet pour l'instant",
-    "empty_description": "Regroupez les tâches liées dans un projet pour suivre l'avancement et les responsables.",
     "view_compact": "Compact",
     "view_comfortable": "Confortable",
     "no_search_results": "Aucun résultat ne correspond à votre recherche",
     "view_table": "Grille",
     "view_cards": "Cartes",
     "row_menu": "Actions du projet",
+    "rename": "Renommer",
     "pin": "Épingler à la barre latérale",
     "unpin": "Détacher",
     "delete": "Supprimer",
@@ -64,6 +63,7 @@
     "pin_tooltip": "Épingler à la barre latérale",
     "unpin_tooltip": "Détacher de la barre latérale",
     "sidebar_tooltip": "Afficher ou masquer la barre latérale droite",
+    "rename_action": "Renommer le projet",
     "copy_link": "Copier le lien",
     "delete_action": "Supprimer le projet",
     "section_properties": "Propriétés",
@@ -155,6 +155,7 @@
     "ref_default_tooltip": "Aucune branche définie — les tâches utilisent la branche par défaut du dépôt au moment voulu."
   },
   "delete_dialog": {
+    "offline_error": "Vous êtes hors ligne. Reconnectez-vous, puis réessayez la suppression.",
     "title": "Supprimer le projet",
     "description": "Le projet sera supprimé. Les tâches ne seront pas supprimées, mais elles seront détachées.",
     "confirm": "Supprimer",
@@ -175,17 +176,56 @@
     "section_lead": "Responsable",
     "view": "Vue"
   },
+  "intro": {
+    "title": "Découpez les grands chantiers en projets",
+    "description": "Un projet regroupe des tâches liées pour suivre leur avancement ensemble. Sa description et ses dépôts liés accompagnent chaque exécution d'agent comme contexte.",
+    "slides": {
+      "progress": {
+        "title": "L'avancement en un coup d'œil",
+        "description": "Statut, responsable, échéance et taux d'achèvement tiennent sur une carte : inutile d'ouvrir chaque tâche."
+      },
+      "context": {
+        "title": "Le contexte suit chaque exécution",
+        "description": "Rédigez la description et liez les dépôts une seule fois. Chaque exécution sur les tâches du projet les reprend."
+      },
+      "sidebar": {
+        "title": "Épinglé dans la barre latérale",
+        "description": "Épinglez vos projets favoris dans la barre latérale et dépliez-en un pour voir ses tâches."
+      }
+    },
+    "art": {
+      "project_website": "Refonte du site",
+      "project_mobile": "Mobile 1.0",
+      "project_onboarding": "Onboarding",
+      "context_label": "Description du projet",
+      "context_body": "Nouveau site vitrine en Next.js et Tailwind. Les textes suivent docs/brand et chaque page gère le mode sombre.",
+      "run_started": "a lancé une exécution",
+      "context_loaded": "Contexte du projet et 2 dépôts chargés",
+      "issue_count": "{{done}} / {{total}} tâches",
+      "issue_hero": "Animer le hero de la page d'accueil",
+      "issue_pricing": "Tableau comparatif des tarifs",
+      "issue_blog": "Paginer la liste du blog"
+    }
+  },
   "access": {
-    "title": "Accès au projet",
-    "restricted": "Membres sélectionnés uniquement",
-    "creator_hint": "Le créateur conserve toujours son accès. Les modifications prennent effet après enregistrement.",
-    "search": "Rechercher des membres",
-    "creator": "Créateur",
-    "save": "Enregistrer les accès",
-    "saved": "Accès mis à jour",
-    "failed": "Impossible d’enregistrer les accès. Réessayez.",
-    "denied_title": "Accès requis",
-    "denied_message": "Demandez à {{name}} de vous autoriser à accéder à ce projet.",
-    "back": "Retour aux projets"
+    "label": "Accès",
+    "title": "Accès à {{title}}",
+    "description": "Définit qui peut voir ce projet, ses tâches, commentaires et pièces jointes.",
+    "workspace": "Tout l’espace de travail",
+    "private": "Membres du projet uniquement",
+    "members_count": "Membres du projet · {{count}}",
+    "add": "Ajouter un membre",
+    "search": "Rechercher un nom ou un e-mail...",
+    "no_members": "Aucun membre correspondant",
+    "no_selected": "Aucun membre du projet",
+    "admin_notice": "Les owner et admin de l’espace de travail ont toujours accès.",
+    "you": "Vous",
+    "remove": "Retirer {{name}}",
+    "failed": "Impossible d’enregistrer les accès.",
+    "load_failed": "Impossible de charger les membres.",
+    "publish_title": "Rendre ce projet visible à tout l’espace de travail ?",
+    "publish_description": "Tous les membres pourront voir ce projet, ses tâches, commentaires et pièces jointes.",
+    "done": "Terminé",
+    "retry": "Réessayer"
   }
 }

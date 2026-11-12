@@ -18,13 +18,12 @@ import (
 type projectReadPauseDB struct {
 	db.DBTX
 	paused, release chan struct{}
-	once            *sync.Once
 }
 
 func (d projectReadPauseDB) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
 	row := d.DBTX.QueryRow(ctx, query, args...)
 	if strings.HasPrefix(query, "-- name: GetProjectInWorkspace :one") {
-		return &contextLockPauseRow{Row: row, paused: d.paused, release: d.release, once: d.once}
+		return &contextLockPauseRow{Row: row, paused: d.paused, release: d.release}
 	}
 	return row
 }
@@ -54,7 +53,7 @@ func TestUpdateProjectConcurrentPartialUpdate(t *testing.T) {
 			resume := func() { once.Do(func() { close(release) }) }
 			defer resume()
 			h := *testHandler
-			h.Queries = db.New(projectReadPauseDB{DBTX: testPool, paused: paused, release: release, once: new(sync.Once)})
+			h.Queries = db.New(projectReadPauseDB{DBTX: testPool, paused: paused, release: release})
 			req := withURLParam(newRequest("PUT", "/api/projects/"+projectID, map[string]any{
 				"title": "updated title",
 			}), "id", projectID)

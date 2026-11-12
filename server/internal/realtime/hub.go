@@ -44,8 +44,6 @@ type PATResolver interface {
 // typically perform a DB lookup on the underlying resource (task / chat
 // session) and verify it belongs to workspaceID. Implementations should
 // cache positive results to avoid hot-path DB load.
-type MessageAuthorizer func(userID, workspaceID, scopeType, scopeID string, message []byte) bool
-
 type ScopeAuthorizer interface {
 	AuthorizeScope(ctx context.Context, userID, workspaceID, scopeType, scopeID string) (bool, error)
 }
@@ -305,8 +303,7 @@ type Hub struct {
 	memberRemovalPending atomic.Int64
 	memberRemovalDropped atomic.Int64
 
-	authorizer        ScopeAuthorizer
-	messageAuthorizer MessageAuthorizer
+	authorizer ScopeAuthorizer
 
 	// Subscription lifecycle hooks. Both can be nil.
 	onFirstSubscriber SubscriptionCallback
@@ -331,45 +328,6 @@ func (h *Hub) SetAuthorizer(a ScopeAuthorizer) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.authorizer = a
-}
-
-// SetMessageAuthorizer installs a delivery-time permission check.
-func (h *Hub) SetMessageAuthorizer(authorize MessageAuthorizer) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.messageAuthorizer = authorize
-}
-
-// Snapshot recipients before doing database work so authorization never holds
-// the hub mutex or blocks unrelated room registration.
-func (h *Hub) authorizedRecipients(scopeType, scopeID string, message []byte) map[*Client]bool {
-	h.mu.RLock()
-	authorize := h.messageAuthorizer
-	if authorize == nil {
-		h.mu.RUnlock()
-		return nil
-	}
-	recipients := make([]*Client, 0)
-	source := h.clients
-	if scopeType != "" {
-		source = h.rooms[sk(scopeType, scopeID)]
-	}
-	for client := range source {
-		recipients = append(recipients, client)
-	}
-	h.mu.RUnlock()
-	result := make(map[*Client]bool, len(recipients))
-	principals := map[string]bool{}
-	for _, client := range recipients {
-		key := client.userID + ":" + client.workspaceID
-		allowed, checked := principals[key]
-		if !checked {
-			allowed = authorize(client.userID, client.workspaceID, scopeType, scopeID, message)
-			principals[key] = allowed
-		}
-		result[client] = allowed
-	}
-	return result
 }
 
 // SetSubscriptionCallbacks registers callbacks fired when a scope on this
@@ -563,14 +521,13 @@ func (h *Hub) BroadcastToScopeDedup(scopeType, scopeID string, message []byte, e
 
 func (h *Hub) broadcastToScope(scopeType, scopeID string, message []byte, eventID, excludeUserID string) {
 	key := sk(scopeType, scopeID)
-	authorized := h.authorizedRecipients(scopeType, scopeID, message)
 
 	h.mu.RLock()
 	clients := h.rooms[key]
 	var slow []*Client
 	var sent int64
 	for client := range clients {
-		if (authorized != nil && !authorized[client]) || (excludeUserID != "" && client.userID == excludeUserID) {
+		if excludeUserID != "" && client.userID == excludeUserID {
 			continue
 		}
 		if !client.markSeen(eventID) {
@@ -601,14 +558,10 @@ func (h *Hub) fanoutAll(message []byte, excludeWorkspace string) {
 }
 
 func (h *Hub) fanoutAllDedup(message []byte, excludeWorkspace, eventID string) {
-	authorized := h.authorizedRecipients("", "", message)
 	h.mu.RLock()
 	var slow []*Client
 	var sent int64
 	for client := range h.clients {
-		if authorized != nil && !authorized[client] {
-			continue
-		}
 		if excludeWorkspace != "" && client.workspaceID == excludeWorkspace {
 			continue
 		}

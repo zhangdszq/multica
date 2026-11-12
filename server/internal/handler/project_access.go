@@ -1,211 +1,286 @@
 package handler
 
 import (
-	"encoding/json"
-	"fmt"
+	"context"
+	"errors"
+	"log/slog"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/multica-ai/multica/server/internal/logger"
+	"github.com/multica-ai/multica/server/internal/middleware"
+	"github.com/multica-ai/multica/server/internal/projectaccess"
+	"github.com/multica-ai/multica/server/internal/util"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
-	"github.com/multica-ai/multica/server/pkg/protocol"
 )
 
-// projectVisibilitySQL is composed only from constant column names and SQL
-// placeholders. The principal is always a bound parameter.
-func projectVisibilitySQL(projectColumn, workspaceColumn, userParam, runtimeParam string) string {
-	return fmt.Sprintf(`(%s::boolean OR NOT EXISTS (SELECT 1 FROM project pa WHERE pa.id = %s
-        AND pa.workspace_id = %s AND pa.access_restricted
-        AND pa.created_by IS DISTINCT FROM %s::uuid
-        AND NOT (%s::uuid = ANY(pa.allowed_user_ids))))`, runtimeParam, projectColumn, workspaceColumn, userParam, userParam)
-}
-
-// Auth middleware stamps this header only after validating a task token.
-// Runtime work belongs to its workspace even when its owner lacks a project's
-// member grant. Human sessions and PATs still use the member access list.
-func runtimeProjectAccess(r *http.Request) bool {
-	return r.Header.Get("X-Actor-Source") == "task_token"
-}
-
-func projectAllowsRequest(r *http.Request, p db.Project) bool {
-	return runtimeProjectAccess(r) || projectAllowsUser(p, requestUserID(r))
-}
-
-func projectPrincipal(r *http.Request) string {
-	if id := requestUserID(r); id != "" {
-		return id
-	}
-	return "00000000-0000-0000-0000-000000000000"
-}
-
-func (h *Handler) RequireIssueProjectAccess(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, ok := h.loadIssueForUser(w, r, chi.URLParam(r, "id")); !ok {
-			return
-		}
-		next.ServeHTTP(w, r)
-	})
-}
-
-func (h *Handler) canReadProjectIssue(r *http.Request, issueID, workspaceID pgtype.UUID) bool {
-	if !issueID.Valid {
-		return true
-	}
-	issue, err := h.Queries.GetIssueInWorkspace(r.Context(), db.GetIssueInWorkspaceParams{ID: issueID, WorkspaceID: workspaceID})
+// hiddenProjects returns the private projects (MUL-8472) this request may not
+// see. A member request is bounded by the member; an agent request by the
+// run's originator and the agent's owner together (projectaccess.RunPrincipals).
+func (h *Handler) hiddenProjects(r *http.Request, workspaceID string) (projectaccess.Hidden, error) {
+	ctx := r.Context()
+	wsUUID, err := util.ParseUUID(workspaceID)
 	if err != nil {
-		return false
+		return projectaccess.Hidden{}, err
 	}
-	if !issue.ProjectID.Valid {
-		return true
+	userID := requestUserID(r)
+	actorType, actorID := h.resolveActor(r, userID, workspaceID)
+	if actorType == "agent" {
+		return h.hiddenProjectsForAgentRun(ctx, wsUUID, actorID, r.Header.Get("X-Task-ID"))
 	}
-	p, err := h.Queries.GetProjectInWorkspace(r.Context(), db.GetProjectInWorkspaceParams{ID: issue.ProjectID, WorkspaceID: workspaceID})
-	return err == nil && projectAllowsRequest(r, p)
+	userUUID, err := util.ParseUUID(userID)
+	if err != nil {
+		return projectaccess.ForPrincipals(ctx, h.Queries, wsUUID)
+	}
+	if m, ok := ctxMember(ctx); ok && m.WorkspaceID == wsUUID && m.UserID == userUUID {
+		return projectaccess.ForMember(ctx, h.Queries, wsUUID, userUUID, m.Role)
+	}
+	return projectaccess.ForPrincipals(ctx, h.Queries, wsUUID, userUUID)
 }
 
-func projectAllowsUser(p db.Project, userID string) bool {
-	if !p.AccessRestricted {
-		return true
+func (h *Handler) hiddenProjectsForAgentRun(ctx context.Context, workspaceID pgtype.UUID, agentID, taskID string) (projectaccess.Hidden, error) {
+	// Most workspaces have no private project; skip the run lookups there.
+	if private, err := h.Queries.ListPrivateProjectIDs(ctx, workspaceID); err != nil || len(private) == 0 {
+		return projectaccess.Hidden{}, err
 	}
-	if userID == "" {
-		return false
+	agentUUID, agentErr := util.ParseUUID(agentID)
+	taskUUID, taskErr := util.ParseUUID(taskID)
+	if agentErr != nil || taskErr != nil {
+		return projectaccess.ForPrincipals(ctx, h.Queries, workspaceID)
 	}
-	if p.CreatedBy.Valid && uuidToString(p.CreatedBy) == userID {
-		return true
+	task, err := h.Queries.GetAgentTask(ctx, taskUUID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return projectaccess.ForPrincipals(ctx, h.Queries, workspaceID)
 	}
-	for _, id := range p.AllowedUserIds {
-		if uuidToString(id) == userID {
-			return true
+	if err != nil {
+		return projectaccess.Hidden{}, err
+	}
+	agent, err := h.Queries.GetAgent(ctx, agentUUID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return projectaccess.ForPrincipals(ctx, h.Queries, workspaceID)
+	}
+	if err != nil {
+		return projectaccess.Hidden{}, err
+	}
+	return projectaccess.ForPrincipals(ctx, h.Queries, workspaceID, projectaccess.RunPrincipals(task, agent.OwnerID)...)
+}
+
+// requestHiddenProjects is hiddenProjects for handlers: it writes a 500 and
+// returns ok=false when access cannot be resolved, so callers fail closed.
+func (h *Handler) requestHiddenProjects(w http.ResponseWriter, r *http.Request, workspaceID string) (projectaccess.Hidden, bool) {
+	hidden, err := h.hiddenProjects(r, workspaceID)
+	if err != nil {
+		if errors.Is(r.Context().Err(), context.Canceled) && errors.Is(err, context.Canceled) {
+			w.WriteHeader(middleware.StatusClientClosedRequest)
+			return projectaccess.Hidden{}, false
 		}
+		slog.Warn("resolve project access failed", append(logger.RequestAttrs(r), "workspace_id", workspaceID, "error", err)...)
+		writeError(w, http.StatusInternalServerError, "failed to resolve project access")
+		return projectaccess.Hidden{}, false
 	}
-	return false
+	return hidden, true
 }
 
-// Project responses are only emitted after the caller's access has been
-// checked. AccessAllowed remains part of the response contract for compatible
-// clients, but a false response must never cross the HTTP boundary.
-func (h *Handler) projectForRequest(r *http.Request, p db.Project) ProjectResponse {
-	resp := projectToResponse(p)
-	resp.AccessAllowed = projectAllowsRequest(r, p)
-	resp.CanManageAccess = !runtimeProjectAccess(r) && p.CreatedBy.Valid && uuidToString(p.CreatedBy) == requestUserID(r)
-	resp.AllowedUserIDs = []string{}
-	if resp.CanManageAccess {
-		for _, id := range p.AllowedUserIds {
-			resp.AllowedUserIDs = append(resp.AllowedUserIDs, uuidToString(id))
-		}
-	}
-	if !resp.AccessAllowed {
-		resp.Description = nil
-		resp.LeadType, resp.LeadID = nil, nil
-		resp.StartDate, resp.DueDate = nil, nil
-		resp.IssueCount, resp.DoneCount, resp.ResourceCount = 0, 0, 0
-	}
-	return resp
-}
-
-func (h *Handler) requireProjectAccess(w http.ResponseWriter, r *http.Request, projectID pgtype.UUID) bool {
+// requireProjectVisible writes status with notFoundMsg when projectID is a
+// private project the request may not see. Callers pass the status and
+// message they already use for a missing object: a hidden object must be
+// indistinguishable from one that does not exist, so this never answers 403.
+func (h *Handler) requireProjectVisible(w http.ResponseWriter, r *http.Request, workspaceID string, projectID pgtype.UUID, status int, notFoundMsg string) bool {
 	if !projectID.Valid {
 		return true
 	}
-	wsID, ok := parseUUIDOrBadRequest(w, h.resolveWorkspaceID(r), "workspace_id")
+	hidden, ok := h.requestHiddenProjects(w, r, workspaceID)
 	if !ok {
 		return false
 	}
-	p, err := h.Queries.GetProjectInWorkspace(r.Context(), db.GetProjectInWorkspaceParams{ID: projectID, WorkspaceID: wsID})
-	if err != nil {
-		writeError(w, http.StatusNotFound, "project not found")
-		return false
-	}
-	if !projectAllowsRequest(r, p) {
-		writeError(w, http.StatusNotFound, "resource not found")
+	if !hidden.CanSeeProject(projectID) {
+		writeError(w, status, notFoundMsg)
 		return false
 	}
 	return true
 }
 
-func (h *Handler) UpdateProjectAccess(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("X-Actor-Source") == "task_token" {
-		writeError(w, http.StatusForbidden, "project access must be managed by a member")
-		return
+// requireIssueIDVisible is requireProjectVisible for objects that carry only
+// an issue id (comments, attachments, reactions).
+func (h *Handler) requireIssueIDVisible(w http.ResponseWriter, r *http.Request, workspaceID string, issueID pgtype.UUID, status int, notFoundMsg string) bool {
+	if !issueID.Valid {
+		return true
 	}
-	userID, ok := requireUserID(w, r)
+	hidden, ok := h.requestHiddenProjects(w, r, workspaceID)
 	if !ok {
-		return
+		return false
 	}
-	id, ok := parseUUIDOrBadRequest(w, chi.URLParam(r, "id"), "project_id")
-	if !ok {
-		return
+	if hidden.Empty() {
+		return true
 	}
-	wsID, ok := parseUUIDOrBadRequest(w, h.resolveWorkspaceID(r), "workspace_id")
-	if !ok {
-		return
+	projectID, err := h.Queries.GetIssueProjectID(r.Context(), issueID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return true
 	}
-	p, err := h.Queries.GetProjectInWorkspace(r.Context(), db.GetProjectInWorkspaceParams{ID: id, WorkspaceID: wsID})
 	if err != nil {
-		writeError(w, http.StatusNotFound, "project not found")
-		return
+		writeError(w, http.StatusInternalServerError, "failed to resolve project access")
+		return false
 	}
-	if !projectAllowsUser(p, userID) {
-		writeError(w, http.StatusNotFound, "project not found")
-		return
+	if !hidden.CanSeeProject(projectID) {
+		writeError(w, status, notFoundMsg)
+		return false
 	}
-	if !p.CreatedBy.Valid || uuidToString(p.CreatedBy) != userID {
-		writeError(w, http.StatusForbidden, "only the project creator can manage access")
-		return
-	}
-	var req struct {
-		Restricted *bool    `json:"access_restricted"`
-		UserIDs    []string `json:"allowed_user_ids"`
-	}
-	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64*1024)).Decode(&req); err != nil || req.Restricted == nil {
-		writeError(w, http.StatusBadRequest, "access_restricted and a valid member list are required")
-		return
-	}
-	if len(req.UserIDs) > 1000 {
-		writeError(w, http.StatusBadRequest, "too many members")
-		return
-	}
-	ids := []pgtype.UUID{}
-	seen := map[string]bool{}
-	for _, value := range req.UserIDs {
-		memberID, ok := parseUUIDOrBadRequest(w, value, "allowed_user_ids")
-		if !ok {
-			return
-		}
-		if _, err := h.Queries.GetMemberByUserAndWorkspace(r.Context(), db.GetMemberByUserAndWorkspaceParams{UserID: memberID, WorkspaceID: wsID}); err != nil {
-			writeError(w, http.StatusBadRequest, "selected members must belong to this workspace")
-			return
-		}
-		key := uuidToString(memberID)
-		if !seen[key] {
-			ids = append(ids, memberID)
-			seen[key] = true
-		}
-	}
-	p, err = h.Queries.UpdateProjectAccess(r.Context(), db.UpdateProjectAccessParams{
-		ID: id, WorkspaceID: wsID, AccessRestricted: *req.Restricted, AllowedUserIds: ids, CreatedBy: p.CreatedBy,
-	})
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "failed to update project access")
-		return
-	}
-	resp := h.projectForRequest(r, p)
-	workspaceID := uuidToString(wsID)
-	// Recipients that retain access receive the normal full update. Recipients
-	// that lost access receive only the opaque access_changed invalidation; the
-	// realtime authorizer routes the two events to mutually exclusive audiences.
-	h.publish(protocol.EventProjectUpdated, workspaceID, "member", userID, map[string]any{"project": projectEventResponse(resp)})
-	h.publish(protocol.EventProjectAccessChanged, workspaceID, "member", userID, map[string]any{"project_id": resp.ID})
-	writeJSON(w, http.StatusOK, resp)
+	return true
 }
 
-// Per-request permissions cannot be broadcast as if every recipient were the
-// actor. Clients reload their own access policy from the project endpoint.
-func projectEventResponse(resp ProjectResponse) map[string]any {
-	encoded, _ := json.Marshal(resp)
-	payload := map[string]any{}
-	_ = json.Unmarshal(encoded, &payload)
-	delete(payload, "access_allowed")
-	delete(payload, "can_manage_access")
-	delete(payload, "allowed_user_ids")
-	return payload
+// commentInHiddenProject reports whether a comment sits on an issue in a
+// private project the request cannot see. A missing comment is not hidden;
+// the caller's own lookup answers for it.
+func (h *Handler) commentInHiddenProject(r *http.Request, workspaceID string, commentID pgtype.UUID) (bool, error) {
+	hidden, err := h.hiddenProjects(r, workspaceID)
+	if err != nil || hidden.Empty() {
+		return false, err
+	}
+	projectID, err := h.Queries.GetCommentIssueProjectID(r.Context(), commentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return !hidden.CanSeeProject(projectID), nil
+}
+
+// sourceContextProjectVisible answers a hidden target project of a comment
+// sub-issue exactly like a missing one.
+func (h *Handler) sourceContextProjectVisible(r *http.Request, workspaceID, projectID pgtype.UUID) error {
+	hidden, err := h.hiddenProjects(r, uuidToString(workspaceID))
+	if err != nil {
+		return err
+	}
+	if !hidden.CanSeeProject(projectID) {
+		return sourceContextBadRequest("project not found")
+	}
+	return nil
+}
+
+// requireAssigneeCanAccessProject refuses handing an issue in a private
+// project to an agent (or a squad, through its leader) whose owner cannot
+// see that project (MUL-8472). Enqueue enforces the same rule
+// (service.ErrProjectAccessDenied); checking at assignment turns what would be
+// a run that never starts into an explicit 403 with a stable reason code.
+func (h *Handler) requireAssigneeCanAccessProject(w http.ResponseWriter, r *http.Request, workspaceID pgtype.UUID, assigneeType pgtype.Text, assigneeID, projectID pgtype.UUID) bool {
+	if !projectID.Valid || !assigneeType.Valid || !assigneeID.Valid {
+		return true
+	}
+	ctx := r.Context()
+	agentID := assigneeID
+	switch assigneeType.String {
+	case "agent":
+	case "squad":
+		squad, err := h.Queries.GetSquadInWorkspace(ctx, db.GetSquadInWorkspaceParams{ID: assigneeID, WorkspaceID: workspaceID})
+		if err != nil {
+			return true // validateAssigneePair owns the missing-squad answer
+		}
+		agentID = squad.LeaderID
+	default:
+		return true
+	}
+	project, err := h.Queries.GetProjectInWorkspace(ctx, db.GetProjectInWorkspaceParams{ID: projectID, WorkspaceID: workspaceID})
+	if err != nil || project.Visibility != projectaccess.VisibilityPrivate {
+		return true
+	}
+	agent, err := h.Queries.GetAgent(ctx, agentID)
+	if err != nil || !agent.OwnerID.Valid {
+		return true
+	}
+	hidden, err := projectaccess.ForPrincipals(ctx, h.Queries, workspaceID, agent.OwnerID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve project access")
+		return false
+	}
+	if !hidden.CanSeeProject(projectID) {
+		h.writeDispatchBlocked(w, http.StatusForbidden, ReasonProjectAccessBlocked)
+		return false
+	}
+	return true
+}
+
+// requireAttachmentVisible 404s an attachment on an issue (or a comment on an
+// issue) in a project the caller cannot see.
+func (h *Handler) requireAttachmentVisible(w http.ResponseWriter, r *http.Request, workspaceID string, att db.Attachment) bool {
+	if att.IssueID.Valid {
+		return h.requireIssueIDVisible(w, r, workspaceID, att.IssueID, http.StatusNotFound, "attachment not found")
+	}
+	if !att.CommentID.Valid {
+		return true
+	}
+	hidden, ok := h.requestHiddenProjects(w, r, workspaceID)
+	if !ok {
+		return false
+	}
+	if hidden.Empty() {
+		return true
+	}
+	projectID, err := h.Queries.GetCommentIssueProjectID(r.Context(), att.CommentID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return true
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve project access")
+		return false
+	}
+	if !hidden.CanSeeProject(projectID) {
+		writeError(w, http.StatusNotFound, "attachment not found")
+		return false
+	}
+	return true
+}
+
+// requireChatProjectVisible gates a chat session's project context
+// (MUL-8472). The context is injected into the chat agent's runs, so both the
+// caller and the agent's owner must see the project; otherwise it 404s like a
+// missing project.
+func (h *Handler) requireChatProjectVisible(w http.ResponseWriter, r *http.Request, workspaceID string, projectID, agentID pgtype.UUID) bool {
+	if !projectID.Valid {
+		return true
+	}
+	if !h.requireProjectVisible(w, r, workspaceID, projectID, http.StatusNotFound, "project not found") {
+		return false
+	}
+	agent, err := h.Queries.GetAgent(r.Context(), agentID)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "agent not found")
+		return false
+	}
+	if !agent.OwnerID.Valid {
+		return true
+	}
+	hidden, err := projectaccess.ForPrincipals(r.Context(), h.Queries, agent.WorkspaceID, agent.OwnerID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to resolve project access")
+		return false
+	}
+	if !hidden.CanSeeProject(projectID) {
+		writeError(w, http.StatusNotFound, "project not found")
+		return false
+	}
+	return true
+}
+
+// hiddenProjectPredicate is the dynamic-SQL twin of the sqlc
+// hidden_project_ids filter: rows outside any project always pass.
+func hiddenProjectPredicate(column, param string) string {
+	return "(" + column + " IS NULL OR NOT (" + column + " = ANY(" + param + "::uuid[])))"
+}
+
+// filterVisibleIssues drops issues in hidden projects from an unpaginated list.
+func filterVisibleIssues(hidden projectaccess.Hidden, issues []db.Issue) []db.Issue {
+	if hidden.Empty() {
+		return issues
+	}
+	out := issues[:0:0]
+	for _, issue := range issues {
+		if hidden.CanSeeProject(issue.ProjectID) {
+			out = append(out, issue)
+		}
+	}
+	return out
 }

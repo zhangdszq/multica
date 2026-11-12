@@ -106,10 +106,9 @@ func TestMoveIssueRejectsUnsafeInputs(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string
-		body       map[string]any
-		wantError  string
-		wantStatus int
+		name      string
+		body      map[string]any
+		wantError string
 	}{
 		{
 			name: "cross-workspace anchor",
@@ -126,8 +125,7 @@ func TestMoveIssueRejectsUnsafeInputs(t *testing.T) {
 				"before_id":  nil,
 				"after_id":   nil,
 			},
-			wantError:  "project not found",
-			wantStatus: http.StatusNotFound,
+			wantError: "project not found in this workspace",
 		},
 		{
 			name: "canonical position bypass",
@@ -159,12 +157,8 @@ func TestMoveIssueRejectsUnsafeInputs(t *testing.T) {
 			req = withURLParam(req, "id", movedIssueID)
 			testHandler.MoveIssue(w, req)
 
-			wantStatus := tc.wantStatus
-			if wantStatus == 0 {
-				wantStatus = http.StatusBadRequest
-			}
-			if w.Code != wantStatus {
-				t.Fatalf("MoveIssue: expected %d, got %d: %s", wantStatus, w.Code, w.Body.String())
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("MoveIssue: expected 400, got %d: %s", w.Code, w.Body.String())
 			}
 			if !strings.Contains(w.Body.String(), tc.wantError) {
 				t.Fatalf("MoveIssue: expected error %q, got %s", tc.wantError, w.Body.String())

@@ -223,7 +223,7 @@ func (h *Handler) CreateIssueView(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "project not found")
 			return
 		}
-		if !h.requireProjectAccess(w, r, projUUID) {
+		if !h.requireProjectVisible(w, r, uuidToString(wsUUID), projUUID, http.StatusNotFound, "project not found") {
 			return
 		}
 		scopeID = projUUID
@@ -272,6 +272,10 @@ func (h *Handler) ListIssueViews(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "failed to list views")
 			return
 		}
+		views, ok := h.visibleIssueViews(w, r, wsUUID, views)
+		if !ok {
+			return
+		}
 		resp := make([]IssueViewResponse, len(views))
 		for i, v := range views {
 			resp[i] = issueViewToResponse(v)
@@ -302,6 +306,10 @@ func (h *Handler) ListIssueViews(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to list views")
 		return
 	}
+	views, ok = h.visibleIssueViews(w, r, wsUUID, views)
+	if !ok {
+		return
+	}
 	resp := make([]IssueViewResponse, len(views))
 	for i, v := range views {
 		resp[i] = issueViewToResponse(v)
@@ -326,6 +334,9 @@ func (h *Handler) loadIssueViewForUser(w http.ResponseWriter, r *http.Request, u
 	})
 	if err != nil || !canReadIssueView(view, parseUUID(userID)) {
 		writeError(w, http.StatusNotFound, "view not found")
+		return db.IssueView{}, pgtype.UUID{}, false
+	}
+	if view.ScopeType == "project" && !h.requireProjectVisible(w, r, uuidToString(wsUUID), view.ScopeID, http.StatusNotFound, "view not found") {
 		return db.IssueView{}, pgtype.UUID{}, false
 	}
 	return view, wsUUID, true
@@ -489,4 +500,24 @@ func (h *Handler) DeleteIssueView(w http.ResponseWriter, r *http.Request) {
 	}
 	h.publishIssueViewChanged(view, false, userID, "deleted")
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// visibleIssueViews drops project-scoped views on private projects the caller
+// cannot see (MUL-8472); a workspace-shared view would otherwise name one.
+func (h *Handler) visibleIssueViews(w http.ResponseWriter, r *http.Request, wsUUID pgtype.UUID, views []db.IssueView) ([]db.IssueView, bool) {
+	hidden, ok := h.requestHiddenProjects(w, r, uuidToString(wsUUID))
+	if !ok {
+		return nil, false
+	}
+	if hidden.Empty() {
+		return views, true
+	}
+	out := views[:0:0]
+	for _, v := range views {
+		if v.ScopeType == "project" && !hidden.CanSeeProject(v.ScopeID) {
+			continue
+		}
+		out = append(out, v)
+	}
+	return out, true
 }

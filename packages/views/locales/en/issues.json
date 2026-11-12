@@ -1,4 +1,11 @@
 {
+  "web": {
+    "open_in_desktop": "Open in Desktop"
+  },
+  "desktop": {
+    "link_other_instance": "The desktop app is connected to a different Multica instance.",
+    "link_workspace_unavailable": "This workspace is unavailable in the desktop app."
+  },
   "inline_run": {
     "label": "{{name}} run",
     "stop": "Stop",
@@ -39,10 +46,17 @@
   "working_filter_error": {
     "title": "Couldn't load issues with working agents"
   },
+  "unread_filter_error": {
+    "title": "Couldn't load your unread issues"
+  },
   "status_catalog_error": {
     "title": "Couldn't load the status list",
     "hint": "Issues can't be shown until statuses load.",
     "retry": "Try again"
+  },
+  "relation_filter_error": {
+    "title": "Couldn't load the \"Relation to me\" filter",
+    "hint": "Issues filtered by \"Subscribed by me\" or \"Assigned to my agents\" can't be shown until your subscriptions and agents load."
   },
   "source_context": {
     "create_action": "Create sub-issue from here",
@@ -181,8 +195,11 @@
     "relation_assigned": "Assigned to me",
     "relation_created": "Created by me",
     "relation_my_agents": "Assigned to my agents",
+    "relation_subscribed": "Subscribed by me",
     "section_agent_status": "Agent status",
     "agent_status_running": "Running",
+    "section_read_state": "Read state",
+    "read_state_unread": "Unread",
     "operator_label": "Match",
     "operator_is": "is",
     "operator_is_not": "is not",
@@ -455,6 +472,8 @@
     "metadata_description": "Key-value data recorded by agents and integrations for workflow coordination.",
     "section_load_failed_retry": "Could not load. Retry",
     "not_found": "This issue does not exist or has been deleted in this workspace.",
+    "load_failed": "Could not load issue.",
+    "load_retry": "Retry",
     "not_found_title": "Issue not found",
     "breadcrumb_project_unknown": "Unknown project",
     "back": "Back",
@@ -536,7 +555,6 @@
     "agents_group": "Agents",
     "mark_done_tooltip": "Mark as done",
     "archive_tooltip": "Archive",
-    "restore_to_inbox_tooltip": "Restore to inbox",
     "pin_tooltip": "Pin to sidebar",
     "unpin_tooltip": "Unpin from sidebar",
     "quick_jump_label": "Quick navigation",
@@ -738,10 +756,17 @@
     "restart_failed": "Couldn't stop the current run. Your message wasn't sent."
   },
   "reply": {
+    "recipients_changed": "Reply target changed. Review the recipients before sending again.",
     "placeholder": "Leave a reply...",
     "annotations": {
+      "send_all": "Send all",
+      "send_with_annotations_and_body": "Will send with saved annotations ({{count}}) and draft text.",
+      "send_with_annotations": "Will send with saved annotations ({{count}}).",
+      "send_with_body": "Will send with the draft text.",
       "confirm_add": "Add annotation",
       "save": "Save annotation",
+      "confirm_add_short": "Add",
+      "save_short": "Save",
       "add_comment": "Add to comment",
       "add": "Add to reply",
       "note_label": "Comment",
@@ -784,6 +809,7 @@
   },
   "filtered_empty": {
     "title": "No issues match these filters",
+    "unread_title": "No unread issues",
     "clear_button": "Clear filters"
   },
   "agent_live": {
@@ -800,6 +826,11 @@
     "cancel_failed": "Failed to cancel run"
   },
   "execution_log": {
+    "latest": "Latest",
+    "include_children": "Include sub-issues",
+    "loading": "Loading runs...",
+    "load_failed_retry": "Could not load runs. Retry",
+    "empty": "No runs in this scope.",
     "section": "Execution log",
     "cancel_task_tooltip": "Cancel run",
     "cancel_task_aria": "Cancel run",
@@ -928,6 +959,7 @@
     "confirm": "Stop run"
   },
   "batch": {
+    "delete_restricted": "You can delete issues you created or that your agents created. Workspace owners and admins can delete any issue.",
     "selected": "{{count}} selected",
     "status": "Status",
     "priority": "Priority",
@@ -945,7 +977,6 @@
     "delete_dialog_title_other": "Delete {{count}} issues?",
     "delete_dialog_desc_one": "This action cannot be undone. This will permanently delete the selected issue and all associated data.",
     "delete_dialog_desc_other": "This action cannot be undone. This will permanently delete the selected issues and all associated data.",
-    "delete_dialog_warning": "Any workspace member can delete issues.",
     "cancel": "Cancel"
   },
   "card": {
@@ -979,7 +1010,9 @@
     "image_layout_three_columns": "3 columns",
     "open_in_new_tab": "Open in new tab",
     "pin_to_sidebar": "Pin to sidebar",
+    "locate_in_sidebar": "Show in sidebar",
     "unpin_from_sidebar": "Unpin from sidebar",
+    "restore_to_inbox": "Restore to inbox",
     "mark_read": "Mark as read",
     "mark_unread": "Mark as unread",
     "copy_link": "Copy link",
@@ -1498,6 +1531,9 @@
     "version_short": "v{{version}}",
     "locate_comment": "Show in comments",
     "locate_description": "Show in description",
+    "copy_link": "Copy link to latest version",
+    "not_found": "No deliverable named “{{name}}” on this issue",
+    "link_load_failed": "Couldn’t load this issue’s deliverables to open “{{name}}”. Reload to try again.",
     "version_label": "Version {{version}} of {{total}}",
     "version_of": "v{{version}} of {{total}}",
     "info_source": "Source",
@@ -1713,7 +1749,6 @@
       "brief_header": "The workflow brief this run received"
     },
     "detail": {
-      "follows_project": "(from project)",
       "card_title": "{{workflow}} · from {{project}}"
     },
     "list_separator": ", ",
@@ -1799,7 +1834,8 @@
     "builtin": {
       "my_issues": "My Issues",
       "my_agents": "My agents' work",
-      "all_issues": "All issues"
+      "all_issues": "All issues",
+      "unread": "Unread"
     },
     "untitled": "Untitled view",
     "copy_name": "{{name}} (copy)",
@@ -1832,6 +1868,9 @@
     "save_as_new": "Save as new view",
     "save_as_new_hint": "Keeps “{{name}}” unchanged",
     "save_as_view": "Save as view",
+    "save_view": "Save view",
+    "add_filter": "Add filter",
+    "setup_hint": "No conditions yet, so this view shows every issue",
     "set_by_view": "Set by this view",
     "new_issue": "New issue",
     "unavailable": "This view is no longer available",
@@ -1858,5 +1897,57 @@
       "empty_title": "No saved views yet",
       "empty_description": "Set up filters and display options in an issue list, then save them as a view."
     }
+  },
+  "app_calls": {
+    "section_title": "Apps",
+    "chips_label": "Apps used in this run",
+    "calls_count_one": "{{count}} call",
+    "calls_count_other": "{{count}} calls",
+    "more": "+{{count}} more",
+    "scope": {
+      "team": "Team account",
+      "personal": "Personal account"
+    },
+    "outcome": {
+      "ok": "Ran",
+      "error": "Failed",
+      "blocked": "Blocked",
+      "pending": "Waiting",
+      "approved": "Approved",
+      "rejected": "Declined",
+      "rate_limited": "Rate limited"
+    }
+  },
+  "environments": {
+    "section_title": "Environments",
+    "running_count_one": "{{count}} running",
+    "running_count_other": "{{count}} running",
+    "this_machine": "This machine",
+    "unknown_machine": "Unknown machine",
+    "state": {
+      "starting": "Starting",
+      "running": "Running",
+      "exited": "Exited",
+      "stopped": "Stopped",
+      "unreachable": "Not responding"
+    },
+    "expires_in_minutes_one": "Expires in {{count}}m",
+    "expires_in_minutes_other": "Expires in {{count}}m",
+    "expires_in_hours_one": "Expires in {{count}}h",
+    "expires_in_hours_other": "Expires in {{count}}h",
+    "expires_in_days_one": "Expires in {{count}}d",
+    "expires_in_days_other": "Expires in {{count}}d",
+    "started_ago": "Started {{time}}",
+    "ended_ago": "Ended {{time}}",
+    "last_seen": "Last seen {{time}}",
+    "ended_count_one": "{{count}} ended",
+    "ended_count_other": "{{count}} ended",
+    "detected_hint": "Found listening in the directory of one of this issue's runs",
+    "remote_hint": "Runs on {{machine}}. A localhost URL opens only on that machine.",
+    "localhost_hint": "A localhost URL opens only on the machine running it.",
+    "open": "Open",
+    "copy_url": "Copy URL",
+    "copied": "URL copied",
+    "copy_failed": "Couldn't copy the URL"
   }
 }

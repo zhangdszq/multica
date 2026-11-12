@@ -1333,7 +1333,9 @@ func (h *Handler) parseAutopilotProjectID(
 		writeError(w, http.StatusBadRequest, "project_id must reference a project in this workspace")
 		return pgtype.UUID{}, false
 	}
-	if !h.requireProjectAccess(w, r, projectID) {
+	// MUL-8472: an autopilot can only file into a private project its author
+	// can see; its runs are then bounded by the rule owner's access.
+	if !h.requireProjectVisible(w, r, uuidToString(workspaceID), projectID, http.StatusBadRequest, "project_id must reference a project in this workspace") {
 		return pgtype.UUID{}, false
 	}
 	return projectID, true

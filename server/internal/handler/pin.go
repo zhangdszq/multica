@@ -2,10 +2,14 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5"
+
+	"github.com/multica-ai/multica/server/internal/projectaccess"
 	db "github.com/multica-ai/multica/server/pkg/db/generated"
 	"github.com/multica-ai/multica/server/pkg/protocol"
 )
@@ -74,20 +78,19 @@ func (h *Handler) ListPins(w http.ResponseWriter, r *http.Request) {
 	// they understand them (?include=view).
 	includeViews := strings.Contains(r.URL.Query().Get("include"), "view")
 
+	// Pins on private projects (or their issues) the caller cannot see are
+	// left out rather than deleted, so they come back if access does.
+	hidden, ok := h.requestHiddenProjects(w, r, workspaceID)
+	if !ok {
+		return
+	}
+
 	resp := make([]PinnedItemResponse, 0, len(pins))
 	for _, p := range pins {
 		if p.ItemType == "view" && !includeViews {
 			continue
 		}
-		if p.ItemType == "project" {
-			project, err := h.Queries.GetProjectInWorkspace(r.Context(), db.GetProjectInWorkspaceParams{
-				ID: p.ItemID, WorkspaceID: parseUUID(workspaceID),
-			})
-			if err != nil || !projectAllowsRequest(r, project) {
-				continue
-			}
-		}
-		if p.ItemType == "issue" && !h.canReadProjectIssue(r, p.ItemID, parseUUID(workspaceID)) {
+		if !hidden.Empty() && !h.pinVisible(r, hidden, p) {
 			continue
 		}
 		resp = append(resp, pinnedItemToResponse(p))
@@ -135,17 +138,17 @@ func (h *Handler) CreatePin(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, "issue not found")
 			return
 		}
-		if !h.requireProjectAccess(w, r, issue.ProjectID) {
+		if !h.requireProjectVisible(w, r, workspaceID, issue.ProjectID, http.StatusNotFound, "issue not found") {
 			return
 		}
 	case "project":
-		if !h.requireProjectAccess(w, r, itemUUID) {
-			return
-		}
 		if _, err := h.Queries.GetProjectInWorkspace(r.Context(), db.GetProjectInWorkspaceParams{
 			ID: itemUUID, WorkspaceID: wsUUID,
 		}); err != nil {
 			writeError(w, http.StatusNotFound, "project not found")
+			return
+		}
+		if !h.requireProjectVisible(w, r, workspaceID, itemUUID, http.StatusNotFound, "project not found") {
 			return
 		}
 	case "view":
@@ -268,4 +271,21 @@ func (h *Handler) ReorderPins(w http.ResponseWriter, r *http.Request) {
 	h.publish(protocol.EventPinReordered, workspaceID, "member", userID, map[string]any{"items": req.Items})
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *Handler) pinVisible(r *http.Request, hidden projectaccess.Hidden, pin db.PinnedItem) bool {
+	switch pin.ItemType {
+	case "project":
+		return hidden.CanSeeProject(pin.ItemID)
+	case "issue":
+		projectID, err := h.Queries.GetIssueProjectID(r.Context(), pin.ItemID)
+		if err != nil {
+			// A missing issue keeps today's behavior (the client prunes it);
+			// a read failure hides the pin rather than risk showing it.
+			return errors.Is(err, pgx.ErrNoRows)
+		}
+		return hidden.CanSeeProject(projectID)
+	default:
+		return true
+	}
 }
