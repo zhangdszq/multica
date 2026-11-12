@@ -4885,7 +4885,9 @@ func executeFakeCodexCollectingMessagesWithConfig(t *testing.T, fakePath string,
 		mu       sync.Mutex
 		messages []Message
 	)
+	collectedDone := make(chan struct{})
 	go func() {
+		defer close(collectedDone)
 		for msg := range session.Messages {
 			mu.Lock()
 			messages = append(messages, msg)
@@ -4896,6 +4898,13 @@ func executeFakeCodexCollectingMessagesWithConfig(t *testing.T, fakePath string,
 	case result, ok := <-session.Result:
 		if !ok {
 			t.Fatal("result channel closed without a value")
+		}
+		// Result and Messages are separate buffered channels. Receiving the
+		// result does not mean the collector has drained the transcript yet.
+		select {
+		case <-collectedDone:
+		case <-ctx.Done():
+			t.Fatal("timeout draining session messages")
 		}
 		mu.Lock()
 		collected := append([]Message(nil), messages...)
