@@ -1073,6 +1073,15 @@
     "updated_ago": "Обновлено {{time}}"
   },
   "actions": {
+    "body_width": "Ширина содержимого",
+    "body_width_narrow": "Узкая",
+    "body_width_normal": "Обычная",
+    "body_width_wide": "Широкая",
+    "image_layout": "Расположение изображений",
+    "image_layout_auto": "Автоматически (до 3 столбцов)",
+    "image_layout_one_column": "1 столбец",
+    "image_layout_two_columns": "2 столбца",
+    "image_layout_three_columns": "3 столбца",
     "rename_issue": "Переименовать задачу",
     "status": "Статус",
     "priority": "Приоритет",

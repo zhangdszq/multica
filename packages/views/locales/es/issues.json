@@ -898,6 +898,15 @@
     "updated_ago": "Actualizada {{time}}"
   },
   "actions": {
+    "body_width": "Ancho del contenido",
+    "body_width_narrow": "Estrecho",
+    "body_width_normal": "Normal",
+    "body_width_wide": "Ancho",
+    "image_layout": "Disposición de imágenes",
+    "image_layout_auto": "Automática (hasta 3 columnas)",
+    "image_layout_one_column": "1 columna",
+    "image_layout_two_columns": "2 columnas",
+    "image_layout_three_columns": "3 columnas",
     "status": "Estado",
     "priority": "Prioridad",
     "assignee": "Asignado",

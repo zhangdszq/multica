@@ -1385,7 +1385,7 @@ export function IssueDetailSkeleton({
         <div className="@container flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]">
           {/* Gutters match the loaded column exactly (see its comment), so the
               skeleton doesn't reflow sideways when real content mounts. */}
-          <div className={cn("mx-auto w-full px-3 py-6 space-y-6 md:px-8 md:py-8", BODY_WIDTH_CLASSES[bodyWidth])}>
+          <div data-issue-body-width={bodyWidth} className={cn("mx-auto w-full px-3 py-6 space-y-6 md:px-8 md:py-8", BODY_WIDTH_CLASSES[bodyWidth])}>
             <Skeleton className="h-8 w-3/4" />
             <div className="space-y-2">
               <Skeleton className="h-4 w-full" />

@@ -636,7 +636,6 @@ const mockTimeline: TimelineEntry[] = [
 // ---------------------------------------------------------------------------
 
 import { IssueDetail, groupSubIssuesByStage } from "./issue-detail";
-import { READING_COLUMN } from "../../layout/reading-column";
 import {
   IssueSurfaceSelectionProvider,
   useCreateIssueSurfaceSelection,
@@ -646,7 +645,7 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const READING_COLUMN_SELECTOR = READING_COLUMN.split(" ").map((cls) => `.${CSS.escape(cls)}`).join("");
+const READING_COLUMN_SELECTOR = "[data-issue-body-width]";
 
 function createTestQueryClient() {
   return new QueryClient({
@@ -884,13 +883,14 @@ describe("IssueDetail (shared)", () => {
   });
 
   it("sizes the skeleton and the loaded column from the same reading container", async () => {
-    // The column's cap is relative to its scroller (`cqi`), so both scrollers
-    // have to be the container or the skeleton and the loaded column resolve
-    // the same clamp against different widths and jump when content mounts.
+    // Both states use the selected reading width (normal by default), inside
+    // the same scroll container, so loading does not change the column width.
     mockApiObj.getIssue.mockReturnValue(new Promise(() => {}));
     const loadingRender = renderIssueDetail();
     const skeletonColumn = loadingRender.container.querySelector(READING_COLUMN_SELECTOR);
     expect(skeletonColumn).toBeTruthy();
+    expect(skeletonColumn).toHaveAttribute("data-issue-body-width", "normal");
+    expect(skeletonColumn).toHaveClass("max-w-4xl");
     expect(skeletonColumn!.parentElement).toHaveClass("@container");
     loadingRender.unmount();
 
@@ -901,6 +901,8 @@ describe("IssueDetail (shared)", () => {
     });
     const column = container.querySelector(READING_COLUMN_SELECTOR);
     expect(column).toBeTruthy();
+    expect(column).toHaveAttribute("data-issue-body-width", "normal");
+    expect(column).toHaveClass("max-w-4xl");
     expect(column!.parentElement).toHaveClass("@container");
   });
 
