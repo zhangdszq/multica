@@ -3,6 +3,7 @@
 import { cloneElement, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
+  BellRing,
   Bot,
   CalendarClock,
   CalendarDays,
@@ -12,6 +13,7 @@ import {
   CircleDot,
   CircleUser,
   Columns3,
+  Eye,
   Filter,
   FolderKanban,
   FolderMinus,
@@ -50,7 +52,7 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from "@multica/ui/components/ui/popover";
-import { Calendar } from "@multica/ui/components/ui/calendar";
+import { LazyCalendar } from "@multica/ui/components/ui/lazy-calendar";
 import { Switch } from "@multica/ui/components/ui/switch";
 import {
   Select,
@@ -166,6 +168,7 @@ function getActiveFilterCount(
     advancedFilter?: AdvancedFilterGroup | null;
     dateFilter?: IssueDateFilter | null;
     agentRunningFilter?: boolean;
+    unreadFilter?: boolean;
   },
   // Inside a saved view only the user's additions on top of the view's own
   // query count — the baseline is the view, not "active filtering".
@@ -213,6 +216,7 @@ function getActiveFilterCount(
   }
   if (state.dateFilter) count++;
   if (state.agentRunningFilter && !baseline?.agentRunning) count++;
+  if (state.unreadFilter && !baseline?.unread) count++;
   return count;
 }
 
@@ -339,7 +343,7 @@ function useIssueCounts(
 
 // Actor sub-menu content (shared between Assignee and Creator)
 
-function ActorSubContent({
+export function ActorSubContent({
   counts,
   selected,
   onToggle,
@@ -392,6 +396,7 @@ function ActorSubContent({
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={stopMenuSearchKeys}
           placeholder={t(($) => $.filters.placeholder)}
           className="w-full bg-transparent text-body placeholder:text-muted-foreground outline-none"
           autoFocus
@@ -524,7 +529,7 @@ function ActorSubContent({
 
 // Project sub-menu content
 
-function ProjectSubContent({
+export function ProjectSubContent({
   counts,
   selected,
   onToggle,
@@ -561,6 +566,7 @@ function ProjectSubContent({
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={stopMenuSearchKeys}
           placeholder={t(($) => $.filters.placeholder)}
           className="w-full bg-transparent text-body placeholder:text-muted-foreground outline-none"
           autoFocus
@@ -663,7 +669,7 @@ function ProjectStatusSubContent({
 
 // Label sub-menu content
 
-function LabelSubContent({
+export function LabelSubContent({
   counts,
   selected,
   onToggle,
@@ -690,6 +696,7 @@ function LabelSubContent({
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={stopMenuSearchKeys}
           placeholder={t(($) => $.filters.placeholder)}
           className="w-full bg-transparent text-body placeholder:text-muted-foreground outline-none"
           autoFocus
@@ -819,7 +826,8 @@ function DateSubContent({
             }
           />
           <PopoverContent align="start" side="right" className="w-auto gap-0 p-0">
-            <Calendar
+            <LazyCalendar
+              autoFocus
               mode="range"
               selected={range}
               onSelect={(next) => setRange(next)}
@@ -907,16 +915,20 @@ const OPERATOR_SEGMENT_CLASS =
 
 /** "Is" / "is not" for one dimension, heading its submenu. Radio items keep
  *  it in the menu's keyboard order; the selection below is left as it is. */
-function FilterOperatorSwitch({ dimension }: { dimension: NegatableFilterDimension }) {
+export function FilterOperatorToggle({
+  negated,
+  onNegatedChange,
+}: {
+  negated: boolean;
+  onNegatedChange: (negated: boolean) => void;
+}) {
   const { t } = useT("issues");
-  const negated = useViewStore((s) => s.negatedFilters.includes(dimension));
-  const setFilterNegated = useViewStore((s) => s.setFilterNegated);
   return (
     <>
       <DropdownMenuRadioGroup
         aria-label={t(($) => $.filters.operator_label)}
         value={negated ? "is_not" : "is"}
-        onValueChange={(value) => setFilterNegated(dimension, value === "is_not")}
+        onValueChange={(value) => onNegatedChange(value === "is_not")}
         className="m-1 flex gap-0.5 rounded-lg bg-muted p-0.5"
       >
         <DropdownMenuRadioItem value="is" closeOnClick={false} className={OPERATOR_SEGMENT_CLASS}>
@@ -931,10 +943,22 @@ function FilterOperatorSwitch({ dimension }: { dimension: NegatableFilterDimensi
   );
 }
 
+function FilterOperatorSwitch({ dimension }: { dimension: NegatableFilterDimension }) {
+  const negated = useViewStore((s) => s.negatedFilters.includes(dimension));
+  const setFilterNegated = useViewStore((s) => s.setFilterNegated);
+  return (
+    <FilterOperatorToggle
+      negated={negated}
+      onNegatedChange={(next) => setFilterNegated(dimension, next)}
+    />
+  );
+}
+
 const RELATION_ICONS: Record<IssueRelationFilter, typeof User> = {
   assigned: CircleUser,
   created: UserPen,
   my_agents: Bot,
+  subscribed: BellRing,
 };
 
 /** Read-only sentence form of the active filters, shown on hover so a closed
@@ -989,6 +1013,7 @@ export function IssueFilterMenu({
   onTableFacetChange,
   dateFilter = null,
   onDateFilterChange,
+  open,
   onOpenChange,
   freezeAnchor = false,
   viewBaseline,
@@ -1019,6 +1044,9 @@ export function IssueFilterMenu({
   onTableFacetChange?: (facet: IssueTableFacetSpec | null) => void;
   dateFilter?: IssueDateFilter | null;
   onDateFilterChange?: (filter: IssueDateFilter | null) => void;
+  /** Opens the menu, or the advanced panel in advanced mode, from the host,
+   *  e.g. right after a view is named. Pair it with `onOpenChange`. */
+  open?: boolean;
   /** Mirrors the menu's open state. */
   onOpenChange?: (open: boolean) => void;
   /** Pin the open menu to the trigger's position AT OPEN TIME (a virtual
@@ -1047,14 +1075,24 @@ export function IssueFilterMenu({
   const negatedFilters = useViewStore((s) => s.negatedFilters);
   const propertyFilters = useViewStore((s) => s.propertyFilters);
   const agentRunningFilter = useViewStore((s) => s.agentRunningFilter);
+  const unreadFilter = useViewStore((s) => s.unreadFilter);
   const viewStoreApi = useViewStoreApi();
   const act = viewStoreApi.getState();
   const advancedMode = advancedFilter !== null;
   const [panelOpen, setPanelOpen] = useState(false);
   // Leaving advanced mode from inside the panel unmounts it with no close
-  // event; the next entry must start closed until asked.
+  // event; the next entry must start closed until asked, and a host that
+  // holds `open` must hear it closed or the simple menu pops open instead.
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+  const wasAdvancedRef = useRef(advancedMode);
+  const menuOpen = open !== undefined && wasAdvancedRef.current && !advancedMode ? false : open;
   useEffect(() => {
-    if (!advancedMode) setPanelOpen(false);
+    if (!advancedMode) {
+      setPanelOpen(false);
+      if (wasAdvancedRef.current) onOpenChangeRef.current?.(false);
+    }
+    wasAdvancedRef.current = advancedMode;
   }, [advancedMode]);
   const [search, setSearch] = useState("");
   const query = search.trim().toLowerCase();
@@ -1101,6 +1139,7 @@ export function IssueFilterMenu({
         advancedFilter,
         dateFilter: showDateFilter ? dateFilter : null,
         agentRunningFilter,
+        unreadFilter,
       },
       viewBaseline,
     ) > 0;
@@ -1112,6 +1151,13 @@ export function IssueFilterMenu({
     <FilterTriggerValue chip={chipByKey.get(key)} modified={modifiedKeys?.has(key)} />
   );
   const [activeAtOpen, setActiveAtOpen] = useState<ReadonlySet<string> | null>(null);
+  // A host opening the menu fires no onOpenChange, so the open-time snapshot
+  // is taken when the prop flips instead.
+  const [openProp, setOpenProp] = useState(open);
+  if (open !== openProp) {
+    setOpenProp(open);
+    if (open && !advancedMode && activeAtOpen === null) setActiveAtOpen(new Set(chipByKey.keys()));
+  }
   const activeKeys = activeAtOpen ?? new Set(chipByKey.keys());
   const dateFilterLabel = showDateFilter && dateFilter
     ? `${t(($) => $.filters[DATE_FIELD_LABEL_KEY[dateFilter.field]])}: ${
@@ -1131,6 +1177,8 @@ export function IssueFilterMenu({
       ? t(($) => $.filters.section_date)
       : key === "agentRunning"
         ? `${t(($) => $.filters.section_agent_status)} ${t(($) => $.filters.agent_status_running)}`
+        : key === "unread"
+          ? `${t(($) => $.filters.section_read_state)} ${t(($) => $.filters.read_state_unread)}`
         : key.startsWith("property:")
           ? filterableProperties.find((p) => `property:${p.id}` === key)?.name ?? ""
           : fieldLabels[key as NegatableFilterDimension] ?? "";
@@ -1212,6 +1260,32 @@ export function IssueFilterMenu({
                   <HoverCheck checked={agentRunningFilter} />
                   <Activity className="size-3.5 text-muted-foreground" />
                   {t(($) => $.filters.agent_status_running)}
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            )}
+
+            {/* Read state */}
+            {show("unread") && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Eye className="size-3.5" />
+                <span className="flex-1">{t(($) => $.filters.section_read_state)}</span>
+                {triggerValue("unread")}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="w-auto min-w-44">
+                <DropdownMenuCheckboxItem
+                  checked={unreadFilter}
+                  disabled={viewBaseline?.unread === true}
+                  title={viewBaseline?.unread === true ? fixedTitle : undefined}
+                  onCheckedChange={() => act.toggleUnreadFilter()}
+                  className={FILTER_ITEM_CLASS}
+                >
+                  <HoverCheck checked={unreadFilter} />
+                  <span className="flex size-3.5 items-center justify-center">
+                    <span className="size-1.5 rounded-full bg-brand" />
+                  </span>
+                  {t(($) => $.filters.read_state_unread)}
                 </DropdownMenuCheckboxItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
@@ -1335,8 +1409,8 @@ export function IssueFilterMenu({
             </DropdownMenuSub>
             )}
 
-            {/* Relation to me — OR across assigned / created / my agents,
-                which no single actor dimension can express. */}
+            {/* Relation to me — OR across assigned / created / my agents /
+                subscribed, which no single actor dimension can express. */}
             {showRelation && show("relation") && (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
@@ -1544,6 +1618,7 @@ export function IssueFilterMenu({
   const sectionKeys = [
     ...searchFields.filter((field) => field !== "relation" || showRelation),
     "agentRunning",
+    "unread",
     ...(showDateFilter ? ["date"] : []),
     ...filterableProperties.map((p) => `property:${p.id}`),
   ];
@@ -1664,10 +1739,10 @@ export function IssueFilterMenu({
   if (advancedMode) {
     return (
       <Popover
-        open={panelOpen}
-        onOpenChange={(open) => {
-          setPanelOpen(open);
-          onOpenChange?.(open);
+        open={panelOpen || open === true}
+        onOpenChange={(next) => {
+          setPanelOpen(next);
+          onOpenChange?.(next);
         }}
       >
         {withTooltip ? (
@@ -1691,21 +1766,22 @@ export function IssueFilterMenu({
 
   return (
     <DropdownMenu
-      onOpenChange={(open) => {
+      open={menuOpen}
+      onOpenChange={(next) => {
         if (freezeAnchor) {
-          if (open && triggerRef.current) {
+          if (next && triggerRef.current) {
             const rect = triggerRef.current.getBoundingClientRect();
             setFrozenAnchor({ getBoundingClientRect: () => rect });
-          } else if (!open) {
+          } else if (!next) {
             setFrozenAnchor(null);
           }
         }
-        setActiveAtOpen(open ? new Set(chipByKey.keys()) : null);
-        if (!open) {
+        setActiveAtOpen(next ? new Set(chipByKey.keys()) : null);
+        if (!next) {
           setSearch("");
           onTableFacetChange?.(null);
         }
-        onOpenChange?.(open);
+        onOpenChange?.(next);
       }}
     >
       {/* One tree for both bodies: swapping wrappers when the first filter
@@ -1801,6 +1877,7 @@ export function IssueDisplayControls({
   const advancedFilter = useViewStore((s) => s.advancedFilter);
   const negatedFilters = useViewStore((s) => s.negatedFilters);
   const agentRunningFilter = useViewStore((s) => s.agentRunningFilter);
+  const unreadFilter = useViewStore((s) => s.unreadFilter);
   const cardPropertyIds = useViewStore((s) => s.cardPropertyIds);
   const sortBy = useViewStore((s) => s.sortBy);
   const sortDirection = useViewStore((s) => s.sortDirection);
@@ -1882,6 +1959,7 @@ export function IssueDisplayControls({
       advancedFilter,
       dateFilter: showDateFilter ? dateFilter : null,
       agentRunningFilter,
+      unreadFilter,
     },
     viewBaseline,
   );

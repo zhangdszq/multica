@@ -36,6 +36,10 @@ interface IssueActionsDropdownProps {
   /** If set, leave the page after the issue is deleted — back to wherever the
    *  user came from, or to this path when there is no in-app history. */
   onDeletedFallbackPath?: string;
+  /** The reader's archived inbox notification for this issue; adds "Restore to inbox". */
+  archivedInboxItemId?: string;
+  /** Adds "Show in sidebar". */
+  onShowInSidebar?: () => void;
 }
 
 export function IssueActionsDropdown({
@@ -43,6 +47,8 @@ export function IssueActionsDropdown({
   trigger,
   align = "end",
   onDeletedFallbackPath,
+  archivedInboxItemId,
+  onShowInSidebar,
 }: IssueActionsDropdownProps) {
   const { t } = useT("issues");
   const actions = useIssueActions(issue);
@@ -118,6 +124,8 @@ export function IssueActionsDropdown({
             primitives={dropdownPrimitives}
             onClose={() => setOpen(false)}
             onDeletedFallbackPath={onDeletedFallbackPath}
+            archivedInboxItemId={archivedInboxItemId}
+            onShowInSidebar={onShowInSidebar}
           />
         </DropdownMenuContent>
     </DropdownMenu>

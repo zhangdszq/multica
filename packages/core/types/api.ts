@@ -158,8 +158,7 @@ export interface ListIssuesParams {
   /**
    * Filter by lifecycle category rather than by exact key, so one bucket holds
    * all concrete and custom statuses in that phase. Task views use exact
-   * status keys for their columns instead. The web client's
-   * `ApiClient.listIssues` does not send it.
+   * status keys for their columns instead.
    */
   status_category?: IssueStatusCategory;
   /** Multi-value form of `status_category`. OR within the field. */
@@ -312,7 +311,7 @@ export type IssueTableScope =
   | { kind: "creator"; actor: IssueActorRef }
   | { kind: "my"; relation: "assigned" | "created" | "involved" | "any" };
 
-export type IssueTableRelation = "assigned" | "created" | "my_agents";
+export type IssueTableRelation = "assigned" | "created" | "my_agents" | "subscribed";
 
 export type IssueTableNegatableFilter =
   | "statuses"
@@ -382,6 +381,9 @@ export interface IssueTableFilters {
   /** Match the running-task issue projection returned by
    *  `/api/working-agents`. An explicit empty list matches nothing. */
   working_issue_ids?: string[];
+  /** Match the viewer's unread issues as the client holds them
+   *  (`/api/issues/unread`). An explicit empty list matches nothing. */
+  unread_issue_ids?: string[];
   include_sub_issues?: boolean;
 }
 

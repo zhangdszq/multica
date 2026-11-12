@@ -5,14 +5,13 @@
     "scope_all": "All projects",
     "scope_active": "Active projects",
     "scope_closed": "Closed projects",
-    "empty": "No projects yet",
-    "empty_description": "Group related issues into a project to track progress and owners.",
     "view_compact": "Compact",
     "view_comfortable": "Comfortable",
     "no_search_results": "No results match your search",
     "view_table": "Table",
     "view_cards": "Cards",
     "row_menu": "Project actions",
+    "rename": "Rename",
     "pin": "Pin to sidebar",
     "unpin": "Unpin",
     "delete": "Delete",
@@ -64,6 +63,7 @@
     "pin_tooltip": "Pin to sidebar",
     "unpin_tooltip": "Unpin from sidebar",
     "sidebar_tooltip": "Toggle right sidebar",
+    "rename_action": "Rename project",
     "copy_link": "Copy link",
     "delete_action": "Delete project",
     "section_properties": "Properties",
@@ -155,6 +155,7 @@
     "ref_default_tooltip": "No branch set — tasks use whatever the repository's default branch is at the time."
   },
   "delete_dialog": {
+    "offline_error": "You're offline. Reconnect and try deleting again.",
     "title": "Delete project",
     "description": "This will delete the project. Issues will not be deleted but will be unlinked.",
     "confirm": "Delete",
@@ -175,17 +176,56 @@
     "section_lead": "Lead",
     "view": "View"
   },
+  "intro": {
+    "title": "Break big work into projects",
+    "description": "A project groups related issues so you can track them together. Its description and linked repositories go along as context on every agent run.",
+    "slides": {
+      "progress": {
+        "title": "See progress at a glance",
+        "description": "Status, lead, target date, and completion sit on one card, so you don't have to open every issue."
+      },
+      "context": {
+        "title": "Context travels with every run",
+        "description": "Write the description and link repositories once. Every run on the project's issues picks them up."
+      },
+      "sidebar": {
+        "title": "Pinned to your sidebar",
+        "description": "Pin the projects you use most to the sidebar, and expand one to see its issues."
+      }
+    },
+    "art": {
+      "project_website": "Website redesign",
+      "project_mobile": "Mobile 1.0",
+      "project_onboarding": "Onboarding",
+      "context_label": "Project description",
+      "context_body": "New marketing site on Next.js and Tailwind. Copy follows docs/brand, and every page supports dark mode.",
+      "run_started": "started a run",
+      "context_loaded": "Loaded the project context and 2 repositories",
+      "issue_count": "{{done}} / {{total}} issues",
+      "issue_hero": "Animate the homepage hero",
+      "issue_pricing": "Pricing comparison table",
+      "issue_blog": "Paginate the blog list"
+    }
+  },
   "access": {
-    "title": "Project access",
-    "restricted": "Only selected members",
-    "creator_hint": "The creator always has access. Changes take effect after saving.",
-    "search": "Search members",
-    "creator": "Creator",
-    "save": "Save access",
-    "saved": "Access updated",
-    "failed": "Could not save access. Try again.",
-    "denied_title": "Access required",
-    "denied_message": "Ask {{name}} to authorize access to this project.",
-    "back": "Back to projects"
+    "label": "Access",
+    "title": "Access to {{title}}",
+    "description": "Controls who can see this project and its issues, comments, and attachments.",
+    "workspace": "Entire workspace",
+    "private": "Project members only",
+    "members_count": "Project members · {{count}}",
+    "add": "Add workspace member",
+    "search": "Search name or email...",
+    "no_members": "No matching members",
+    "no_selected": "No project members",
+    "admin_notice": "Workspace owners and admins always have access.",
+    "you": "You",
+    "remove": "Remove {{name}}",
+    "failed": "Could not save access changes.",
+    "load_failed": "Could not load project members.",
+    "publish_title": "Make this project visible to the workspace?",
+    "publish_description": "All workspace members will be able to see this project and its issues, comments, and attachments.",
+    "done": "Done",
+    "retry": "Retry"
   }
 }

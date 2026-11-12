@@ -15,6 +15,7 @@ import {
 import { toast } from "sonner";
 import { useWorkspaceId } from "@multica/core/hooks";
 import { useAuthStore } from "@multica/core/auth";
+import { useReducedMotion } from "@multica/core/appearance";
 import { agentListOptions, memberListOptions } from "@multica/core/workspace/queries";
 import { projectListOptions } from "@multica/core/projects/queries";
 import { canAssignAgent } from "../../issues/components/pickers/assignee-picker";
@@ -73,8 +74,10 @@ import { useChatOpenReveal } from "./use-chat-open-reveal";
 import { ChatWindowMessages } from "./chat-window-messages";
 import { ChatInput } from "./chat-input";
 import { ChatQueue } from "./chat-queue";
+import { ChatAppRequests } from "../../common/app-requests";
 import { EmptyState } from "./chat-empty-state";
 import { SessionRenameInput } from "./session-rename-input";
+import { SessionHistoryList } from "./session-history-list";
 import { ChatResizeHandles } from "./chat-resize-handles";
 import { useChatContextItems } from "./use-chat-context-items";
 import { useChatResize } from "./use-chat-resize";
@@ -732,6 +735,7 @@ export function ChatWindow() {
   const isExpanded = useChatStore((s) => s.isExpanded);
 
   const { renderWidth, renderHeight, isAtMax, boundsReady, isDragging, toggleExpand, startDrag } = useChatResize(windowRef);
+  const reduceMotion = useReducedMotion();
   const { contentReady, markContentReady } = useChatOpenReveal(isOpen);
 
   const isVisible = isOpen && (isExpanded || boundsReady) && contentReady;
@@ -799,8 +803,18 @@ export function ChatWindow() {
   const contextItems = useChatContextItems(wsId);
   const queuedTasks = pendingTask?.queued_tasks ?? [];
 
+  const showRestore = isExpanded || isAtMax;
+  const newChatLabel = t(($) => $.window.new_chat_tooltip);
+  const expandLabel = showRestore
+    ? t(($) => $.window.restore_tooltip)
+    : t(($) => $.window.expand_tooltip);
+  const minimizeLabel = t(($) => $.window.minimize_tooltip);
+  const sizeTransition =
+    isDragging || reduceMotion ? { duration: 0 } : { type: "spring" as const, duration: 0.3, bounce: 0 };
+
   return (
     <motion.div
+      data-mc="chat-window"
       ref={windowRef}
       inert={!isOpen}
       aria-hidden={!isOpen}
@@ -812,8 +826,8 @@ export function ChatWindow() {
         ...motionSize,
       }}
       transition={{
-        width: isDragging ? { duration: 0 } : { type: "spring", duration: 0.3, bounce: 0 },
-        height: isDragging ? { duration: 0 } : { type: "spring", duration: 0.3, bounce: 0 },
+        width: sizeTransition,
+        height: sizeTransition,
         opacity: { duration: 0.15 },
       }}
     >
@@ -827,14 +841,15 @@ export function ChatWindow() {
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  className="rounded-full text-muted-foreground"
+                  className="text-muted-foreground"
+                  aria-label={newChatLabel}
                   onClick={handleNewChat}
                 />
               }
             >
               <Plus />
             </TooltipTrigger>
-            <TooltipContent side="top">{t(($) => $.window.new_chat_tooltip)}</TooltipContent>
+            <TooltipContent side="top">{newChatLabel}</TooltipContent>
           </Tooltip>
           <SessionDropdown
             sessions={sessions}
@@ -854,15 +869,14 @@ export function ChatWindow() {
                     variant="ghost"
                     size="icon-sm"
                     className="text-muted-foreground"
+                    aria-label={expandLabel}
                     onClick={toggleExpand}
                   />
                 }
               >
-                {isExpanded || isAtMax ? <Minimize2 /> : <Maximize2 />}
+                {showRestore ? <Minimize2 /> : <Maximize2 />}
               </TooltipTrigger>
-              <TooltipContent side="top">
-                {isExpanded || isAtMax ? t(($) => $.window.restore_tooltip) : t(($) => $.window.expand_tooltip)}
-              </TooltipContent>
+              <TooltipContent side="top">{expandLabel}</TooltipContent>
             </Tooltip>
           )}
           <Tooltip>
@@ -872,6 +886,7 @@ export function ChatWindow() {
                   variant="ghost"
                   size="icon-sm"
                   className="text-muted-foreground"
+                  aria-label={minimizeLabel}
                   onClick={handleMinimize}
                 />
               }
@@ -879,7 +894,7 @@ export function ChatWindow() {
               <Minus />
             </TooltipTrigger>
             <TooltipContent side="top">
-              {t(($) => $.window.minimize_tooltip)}
+              {minimizeLabel}
               <ActionShortcutKeycaps action="toggleChat" />
             </TooltipContent>
           </Tooltip>
@@ -939,6 +954,10 @@ export function ChatWindow() {
       ) : (
         <OfflineBanner agentName={activeAgent?.name} availability={availability} />
       )}
+
+      <div className="px-4">
+        <ChatAppRequests sessionId={activeSessionId} />
+      </div>
 
       <ChatQueue
         tasks={queuedTasks}
@@ -1581,7 +1600,7 @@ function SessionDropdown({
         </div>
         <PopoverContent
           align="start"
-          className="max-h-96 w-auto min-w-[max(16rem,var(--anchor-width,16rem))] max-w-96 gap-0 overflow-y-auto p-1"
+          className="max-h-96 w-auto min-w-[max(16rem,var(--anchor-width,16rem))] max-w-96 gap-0 overflow-hidden p-1"
           onClick={(e) => e.stopPropagation()}
         >
           {historySessions.length === 0 ? (
@@ -1593,7 +1612,12 @@ function SessionDropdown({
               <div className="px-1.5 py-1 text-caption font-medium text-muted-foreground">
                 {t(($) => $.window.history_group)}
               </div>
-              {historySessions.map(renderRow)}
+              <SessionHistoryList
+                sessions={historySessions}
+                renderRow={renderRow}
+                estimatedRowHeight={44}
+                maxHeight={320}
+              />
             </div>
           )}
         </PopoverContent>

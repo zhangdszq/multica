@@ -1,4 +1,26 @@
-Project access test deployment (SHUZ-152), based on v0.4.44.
+Historical project access test deployment (SHUZ-152), based on v0.4.44.
+
+The v0.8.2 integration replaces this custom access implementation with the
+official private-project policy. Migration 642 copies the existing creator and
+allowed-user grants into `project_member` and maps restricted projects to
+`visibility = 'private'`. Legacy access columns remain only as rollback data.
+Workspace owners/admins can access private projects under the official policy;
+agent runs require access for both the triggering human and the agent owner.
+Access management belongs to workspace owners/admins and the private project's
+member lead. The creator's existing read grant is preserved without inventing
+a project lead. The legacy `/access` endpoint and settings are removed.
+
+Before executing migrations 616–642, obtain schema-change approval, take and
+validate backups, rehearse on an isolated database, and verify the existing
+grant set against the official model. To check the bridge and rollback on
+temporary fixture tables after approval:
+
+```sh
+psql -X "$TEST_DATABASE_URL" -f server/internal/migrations/testdata/fork_project_access_to_official.sql
+```
+
+The following sections document the earlier deployment and its rollback
+infrastructure; their custom permission rules are superseded by v0.8.2.
 
 The test environment must use a separate PostgreSQL container and volume. Never
 point this build's DATABASE_URL at the production database. Migration

@@ -323,7 +323,7 @@ func TestCreateIssue_AutopilotRunAssignsPrivateAgent(t *testing.T) {
 		})
 
 		t.Run("cross-workspace parent is rejected before the assignee gate", func(t *testing.T) {
-			// The fork conceals a foreign parent with 404 before checking the assignee.
+			// The official parent lookup rejects invalid input before checking the assignee.
 			workerID, ownerID, _ := privateAgentTestFixture(t)
 			fx := newRunOnlyAutopilotFixture(t, workerID, ownerID)
 			foreignUserID := dbfx.User(t, "MUL-6951 Foreign", fmt.Sprintf("mul6951-foreign-%d@multica.test", runOnlyFixtureSeq.Add(1)))
@@ -337,7 +337,7 @@ func TestCreateIssue_AutopilotRunAssignsPrivateAgent(t *testing.T) {
 
 			testutil.Call(t, testHandler.CreateIssue,
 				autopilotChildIssueRequest(t, "agent", workerID, foreignIssueID, "todo", fx.LeaderAgentID, fx.LeaderTaskID),
-			).Want(http.StatusNotFound)
+			).Want(http.StatusBadRequest)
 		})
 	})
 }

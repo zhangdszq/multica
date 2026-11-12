@@ -41,7 +41,7 @@ func (d resourceReadPauseDB) QueryRow(ctx context.Context, query string, args ..
 // contextLockTestStarter cover both shapes.
 func pausedUpdateHandler(paused, release chan struct{}) *Handler {
 	h := *testHandler
-	h.Queries = db.New(resourceReadPauseDB{DBTX: testPool, paused: paused, release: release, once: new(sync.Once)})
+	h.Queries = db.New(resourceReadPauseDB{DBTX: testPool, paused: paused, release: release, once: &sync.Once{}})
 	h.TxStarter = &contextLockTestStarter{
 		pool: testPool, pauseAfter: "GetProjectResourceInWorkspaceForUpdate",
 		paused: paused, release: release,

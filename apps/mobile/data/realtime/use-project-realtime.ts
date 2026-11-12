@@ -12,7 +12,6 @@
  *   - project:deleted → drop detail + resources, then fire `onDeleted` so
  *                       the screen pops back instead of stranding the user
  *                       on a 404 page.
- *   - project:access_changed → the same purge/navigation for revoked access.
  *   - issue:updated/created/deleted → patch the related-issues cache so
  *                       the list under the project stays in sync.
  *                       Listing-level hooks (use-my-issues-realtime) only
@@ -66,12 +65,6 @@ export function useProjectRealtime(
           patchProjectDetail(qc, wsId, payload.project);
         }),
         ws.on("project:deleted", (payload) => {
-          if (payload.project_id !== projectId) return;
-          clearProjectDetail(qc, wsId, projectId);
-          removeFromProjectsList(qc, wsId, projectId);
-          onDeleted?.();
-        }),
-        ws.on("project:access_changed", (payload) => {
           if (payload.project_id !== projectId) return;
           clearProjectDetail(qc, wsId, projectId);
           removeFromProjectsList(qc, wsId, projectId);

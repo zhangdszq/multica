@@ -54,7 +54,7 @@ func TestUpdateProjectConcurrentPartialUpdate(t *testing.T) {
 			resume := func() { once.Do(func() { close(release) }) }
 			defer resume()
 			h := *testHandler
-			h.Queries = db.New(projectReadPauseDB{DBTX: testPool, paused: paused, release: release, once: new(sync.Once)})
+			h.Queries = db.New(projectReadPauseDB{DBTX: testPool, paused: paused, release: release, once: &sync.Once{}})
 			req := withURLParam(newRequest("PUT", "/api/projects/"+projectID, map[string]any{
 				"title": "updated title",
 			}), "id", projectID)

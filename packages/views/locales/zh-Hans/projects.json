@@ -5,14 +5,13 @@
     "scope_all": "全部项目",
     "scope_active": "进行中的项目",
     "scope_closed": "已结束的项目",
-    "empty": "还没有项目",
-    "empty_description": "用项目把相关任务归到一起，跟踪进度和负责人。",
     "view_compact": "紧凑视图",
     "view_comfortable": "舒适视图",
     "no_search_results": "未找到匹配的项目",
     "view_table": "表格",
     "view_cards": "卡片",
     "row_menu": "项目操作",
+    "rename": "重命名",
     "pin": "固定到侧边栏",
     "unpin": "取消钉选",
     "delete": "删除",
@@ -64,6 +63,7 @@
     "pin_tooltip": "固定到侧边栏",
     "unpin_tooltip": "从侧边栏取消固定",
     "sidebar_tooltip": "切换右侧边栏",
+    "rename_action": "重命名项目",
     "copy_link": "复制链接",
     "delete_action": "删除项目",
     "section_properties": "属性",
@@ -155,6 +155,7 @@
     "ref_default_tooltip": "未设置分支 —— 任务使用仓库当时的默认分支。"
   },
   "delete_dialog": {
+    "offline_error": "当前处于离线状态，请联网后重试删除。",
     "title": "删除项目",
     "description": "将删除这个项目。任务不会被删除，只会从项目中解除关联。",
     "confirm": "删除",
@@ -175,17 +176,56 @@
     "section_lead": "负责人",
     "view": "视图"
   },
+  "intro": {
+    "title": "把一件大事拆成项目来推进",
+    "description": "项目把相关任务收在一起，统一看进度。项目描述和关联的仓库会作为上下文，自动带进每一次智能体运行。",
+    "slides": {
+      "progress": {
+        "title": "进度一眼看清",
+        "description": "状态、负责人、截止日期和完成比例都在一张卡上，不用逐个翻任务。"
+      },
+      "context": {
+        "title": "上下文自动带给智能体",
+        "description": "写一次项目描述、关联一次仓库，项目里每个任务的运行都会带上。"
+      },
+      "sidebar": {
+        "title": "钉在侧栏，随手进入",
+        "description": "常用项目固定在侧栏，展开就能看到里面的任务。"
+      }
+    },
+    "art": {
+      "project_website": "官网改版",
+      "project_mobile": "移动端 1.0",
+      "project_onboarding": "新手引导",
+      "context_label": "项目描述",
+      "context_body": "新版官网，Next.js + Tailwind。文案以 docs/brand 为准，所有页面都要支持深色模式。",
+      "run_started": "开始运行",
+      "context_loaded": "已载入项目上下文和 2 个仓库",
+      "issue_count": "{{done}} / {{total}} 个任务",
+      "issue_hero": "首页 Hero 动效",
+      "issue_pricing": "定价页对比表",
+      "issue_blog": "博客列表分页"
+    }
+  },
   "access": {
-    "title": "访问授权",
-    "restricted": "仅允许选中的成员访问",
-    "creator_hint": "创建人始终有权访问；修改名单后请保存。",
-    "search": "搜索成员",
-    "creator": "创建人",
-    "save": "保存授权",
-    "saved": "授权已更新",
-    "failed": "保存失败，请重试。",
-    "denied_title": "需要访问授权",
-    "denied_message": "请联系 {{name}} 为你授权访问此项目。",
-    "back": "返回项目列表"
+    "label": "访问权限",
+    "title": "{{title}}的访问权限",
+    "description": "控制谁能查看项目及其中的任务、评论和附件。",
+    "workspace": "整个工作区",
+    "private": "仅项目成员",
+    "members_count": "项目成员 · {{count}}",
+    "add": "添加工作区成员",
+    "search": "搜索姓名或邮箱...",
+    "no_members": "没有匹配的成员",
+    "no_selected": "暂无项目成员",
+    "admin_notice": "工作区 owner 和 admin 始终可以访问。",
+    "you": "你",
+    "remove": "移除{{name}}",
+    "failed": "无法保存访问权限。",
+    "load_failed": "无法加载项目成员。",
+    "publish_title": "将项目设为整个工作区可见？",
+    "publish_description": "工作区所有成员都将能查看这个项目及其中的任务、评论和附件。",
+    "done": "完成",
+    "retry": "重试"
   }
 }

@@ -51,7 +51,6 @@ import {
   MALFORMED_RUNTIME_MODEL_LIST_REQUEST,
   RuntimeModelListRequestSchema,
   SearchProjectsResponseSchema,
-  ProjectSchema,
   RuntimeHourlyActivityListSchema,
   RuntimeUsageByAgentListSchema,
   RuntimeUsageByHourListSchema,
@@ -83,11 +82,14 @@ import { parseWithFallback } from "./schema";
 describe("IssueUnreadPageSchema", () => {
   const endpoint = "GET /api/issues/unread";
 
-  it("defaults a missing agent_id and next_cursor to null", () => {
+  it("defaults missing run fields and next_cursor to null", () => {
     const parsed = parseWithFallback(
       {
         items: [
-          { issue_id: "i-1", outcome: "completed", agent_id: "a-1", created_at: "2026-01-01T00:00:00Z" },
+          {
+            issue_id: "i-1", outcome: "completed", agent_id: "a-1", task_id: "t-1", comment_id: "c-1",
+            created_at: "2026-01-01T00:00:00Z",
+          },
           { issue_id: "i-2", outcome: "manual", created_at: "2026-01-01T00:00:00Z", extra: true },
         ],
       },
@@ -95,9 +97,9 @@ describe("IssueUnreadPageSchema", () => {
       EMPTY_ISSUE_UNREAD_PAGE,
       { endpoint },
     );
-    expect(parsed.items.map((u) => [u.issue_id, u.agent_id])).toEqual([
-      ["i-1", "a-1"],
-      ["i-2", null],
+    expect(parsed.items.map((u) => [u.issue_id, u.agent_id, u.task_id, u.comment_id])).toEqual([
+      ["i-1", "a-1", "t-1", "c-1"],
+      ["i-2", null, null, null],
     ]);
     expect(parsed.next_cursor).toBeNull();
   });
@@ -1080,6 +1082,59 @@ describe("UserSchema timezone drift", () => {
       { endpoint: "GET /api/me" },
     );
     expect(parsed).toBe(EMPTY_USER);
+  });
+});
+
+describe("UserSchema whats_new_seen_version drift", () => {
+  const base = {
+    id: "11111111-1111-1111-1111-111111111111",
+    name: "Ada",
+    email: "ada@example.com",
+  };
+
+  it("leaves the field undefined when an older server omits it", () => {
+    const parsed = UserSchema.parse(base);
+    expect(parsed.whats_new_seen_version).toBeUndefined();
+  });
+
+  it("keeps null and string values distinct from absence", () => {
+    expect(UserSchema.parse({ ...base, whats_new_seen_version: null }).whats_new_seen_version).toBe(null);
+    expect(UserSchema.parse({ ...base, whats_new_seen_version: "0.7.2" }).whats_new_seen_version).toBe("0.7.2");
+  });
+
+  it("degrades a wrong-type value to undefined without discarding the user", () => {
+    const parsed = parseWithFallback(
+      { ...base, whats_new_seen_version: 7 },
+      UserSchema,
+      EMPTY_USER,
+      { endpoint: "GET /api/me" },
+    );
+    expect(parsed.email).toBe("ada@example.com");
+    expect(parsed.whats_new_seen_version).toBeUndefined();
+  });
+});
+
+describe("UserSchema star prompt drift", () => {
+  const base = {
+    id: "11111111-1111-1111-1111-111111111111",
+    name: "Ada",
+    email: "ada@example.com",
+  };
+
+  it("leaves the showing count undefined when an older server omits it", () => {
+    expect(UserSchema.parse(base).star_prompt_shown_count).toBeUndefined();
+  });
+
+  it("degrades wrong-type values to undefined without discarding the user", () => {
+    const parsed = parseWithFallback(
+      { ...base, star_prompt_shown_count: "2", star_prompt_starred_at: 1 },
+      UserSchema,
+      EMPTY_USER,
+      { endpoint: "GET /api/me" },
+    );
+    expect(parsed.email).toBe("ada@example.com");
+    expect(parsed.star_prompt_shown_count).toBeUndefined();
+    expect(parsed.star_prompt_starred_at).toBeUndefined();
   });
 });
 
@@ -2418,21 +2473,6 @@ describe("TaskMessageListSchema", () => {
   });
 });
 
-
-describe("Project access response validation", () => {
-  const project = { id: "p", workspace_id: "w", title: "Project", description: null, icon: null, status: "planned", priority: "none", lead_type: null, lead_id: null, created_at: "", updated_at: "" };
-  it("keeps older backends readable without granting access management", () => {
-    const result = ProjectSchema.parse(project);
-    expect(result.access_allowed).toBe(true);
-    expect(result.can_manage_access).toBe(false);
-    expect(result.allowed_user_ids).toEqual([]);
-  });
-  it("preserves explicit denial and rejects malformed permission flags", () => {
-    expect(ProjectSchema.parse({ ...project, access_allowed: false }).access_allowed).toBe(false);
-    expect(ProjectSchema.safeParse({ ...project, access_allowed: "true" }).success).toBe(false);
-    expect(ProjectSchema.safeParse({ ...project, allowed_user_ids: [1] }).success).toBe(false);
-  });
-});
 
 describe("AgentActivityBucketListSchema duration", () => {
   const bucket = { agent_id: "a", bucket_at: "2026-09-24T00:00:00Z", task_count: 201,
