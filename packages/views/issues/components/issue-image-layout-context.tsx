@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, type ComponentPropsWithoutRef, type ReactNode } from "react";
 import {
   useIssueImageLayoutStore,
   type IssueImageColumns,
@@ -26,15 +26,14 @@ export function useIssueImageLayout(): IssueImageColumns | null {
 export function IssueImageGallery({
   children,
   className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+  ...props
+}: ComponentPropsWithoutRef<"div">) {
   const columns = useIssueImageLayout();
-  if (columns === null) return <>{children}</>;
+  if (columns === null) return <div {...props} className={className}>{children}</div>;
 
   return (
     <div
+      {...props}
       className={cn("issue-image-gallery-shell", className)}
       data-image-columns={columns}
     >
