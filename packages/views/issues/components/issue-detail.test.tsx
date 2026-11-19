@@ -20,6 +20,9 @@ import enIssues from "../../locales/en/issues.json";
 import { useIssueSidebarSectionsStore } from "@multica/core/issues/stores/issue-sidebar-sections-store";
 import { useSubIssuesCollapseStore } from "@multica/core/issues/stores/sub-issues-collapse-store";
 import { configureShortcutPlatform } from "@multica/core/shortcuts";
+// Calendar loading is covered by DateOnlyPicker; avoid a cold import spilling
+// from the optional-field test into the following mobile-layout test.
+import "@multica/ui/components/ui/calendar";
 
 vi.mock("./issue-wakeup-header-chip", () => ({
   IssueWakeupHeaderChip: ({ onOpen }: { onOpen: () => void }) => (
@@ -1509,6 +1512,8 @@ describe("IssueDetail (shared)", () => {
     renderIssueDetail();
     fireEvent.click(await screen.findByRole("button", { name: "Add property" }));
     fireEvent.click(await screen.findByRole("button", { name: "Start date" }));
+    // Adding the field mounts the lazy calendar; settle it within this test.
+    await act(() => vi.dynamicImportSettled());
     // The popover closes (its other options are gone) and the new row is rendered.
     await waitFor(() => expect(screen.queryByRole("button", { name: "Labels" })).not.toBeInTheDocument());
     expect(screen.getAllByText("Start date")[0]).toBeVisible();
