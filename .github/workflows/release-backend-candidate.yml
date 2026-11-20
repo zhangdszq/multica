@@ -30,8 +30,9 @@ jobs:
         run: |
           set -eu
           revision=$(git rev-parse HEAD)
+          version=$(node -p "JSON.parse(require('fs').readFileSync('../apps/desktop/package.json', 'utf8')).version")
           mkdir -p ../backend-candidate/out
-          go build -p=2 -trimpath -ldflags "-s -w -X main.version=0.8.2 -X main.commit=$revision" -o ../backend-candidate/out/server ./cmd/server
+          go build -p=2 -trimpath -ldflags "-s -w -X main.version=$version -X main.commit=$revision" -o ../backend-candidate/out/server ./cmd/server
           go build -p=2 -trimpath -ldflags '-s -w' -o ../backend-candidate/out/migrate ./cmd/migrate
           go test -p=2 -c -o ../backend-candidate/out/handler.test ./internal/handler
           go test -p=2 -c -o ../backend-candidate/out/migrate.test ./cmd/migrate
