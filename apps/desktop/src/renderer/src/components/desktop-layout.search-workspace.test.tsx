@@ -212,8 +212,8 @@ it("cancels an in-flight search when the production router switches workspace", 
   await openSearch();
   holdA = true;
   fireEvent.change(input(), { target: { value: "alpha" } });
-  // The fixture enables docs: issue, project, and document searches must all
-  // be in flight before switching workspaces.
+  // Issues, projects and docs: one held search request each. Docs search runs
+  // on its own debounce, so waiting for only the first two raced its arrival.
   await waitFor(() => expect(held.length).toBe(3), NETWORK_WAIT);
   await notify("synthetic-b");
   await act(async () => {
